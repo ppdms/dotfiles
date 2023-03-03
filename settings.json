@@ -27,7 +27,6 @@
     "workbench.editor.untitled.hint": "hidden",
     "git.autofetch": true,
     "editor.accessibilitySupport": "off",
-    "window.zoomLevel": 1,
     "explorer.confirmDelete": false,
     "telemetry.telemetryLevel": "off",
     "files.exclude": {
@@ -47,7 +46,6 @@
     },
     "git.confirmSync": false,
     "C_Cpp.default.compilerPath": "clang",
-    "breadcrumbs.enabled": false,
     "editor.renderWhitespace": "none",
     "workbench.colorTheme": "GitHub Dark High Contrast",
     "editor.scrollbar.horizontal": "hidden",
@@ -68,7 +66,7 @@
     "editor.tabCompletion": "on",
     "editor.overviewRulerBorder": false,
     "workbench.layoutControl.type": "toggles",
-    "editor.folding": false,
+    "editor.folding": true,
     "workbench.startupEditor": "none",
     "terminal.integrated.shellIntegration.enabled": true,
     "explorer.excludeGitIgnore": true,
@@ -83,5 +81,17 @@
     "[html]": {
         "editor.defaultFormatter": "vscode.html-language-features"
     },
-    "editor.autoSurround":"never"
+    "editor.autoSurround": "never",
+    "[python]": {
+
+        "editor.wordBasedSuggestions": false
+    },
+    "security.workspace.trust.untrustedFiles": "open",
+    "window.zoomLevel": 1,
+    "printcode.tabSize": 4,
+    "editor.unicodeHighlight.ambiguousCharacters": false,
+    "git.enableSmartCommit": true,
+    "editor.unicodeHighlight.nonBasicASCII": false,
+    "breadcrumbs.enabled": false,
+    "python.defaultInterpreterPath": "/opt/homebrew/bin/python3"
 }
