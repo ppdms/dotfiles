@@ -114,5 +114,8 @@ PS1="%F{015}%K{000}%% %{$reset_color%}"
 #fi
 #cd $todaysWorkspace
 
+function toRaspberry() {scp -r $1 basil@192.168.1.30:/home/basil/}
+function fromRaspberry() {scp -r basil@192.168.1.30:$1 /Users/basil/Desktop/}
+
 alias emacs="emacs -nw"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
