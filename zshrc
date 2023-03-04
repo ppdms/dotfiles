@@ -107,7 +107,7 @@ export CFLAGS="-Wall -Wextra -Werror -O2 -std=c99 -pedantic"
 #fi
 
 autoload -U colors && colors
-if [[ $(hostname -s) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
 #todaysWorkspace="/Users/basil/sandbox/$(date +'%Y%m%d')"
 #if [ ! -d $todaysWorkspace ]; then
 #  mkdir $todaysWorkspace

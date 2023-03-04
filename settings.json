@@ -93,5 +93,8 @@
     "git.enableSmartCommit": true,
     "editor.unicodeHighlight.nonBasicASCII": false,
     "breadcrumbs.enabled": false,
-    "python.defaultInterpreterPath": "/opt/homebrew/bin/python3"
+    "python.defaultInterpreterPath": "/opt/homebrew/bin/python3",
+    "[java]": {
+        "editor.defaultFormatter": "redhat.java"
+    }
 }
