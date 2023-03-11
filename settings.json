@@ -96,5 +96,6 @@
     "python.defaultInterpreterPath": "/opt/homebrew/bin/python3",
     "[java]": {
         "editor.defaultFormatter": "redhat.java"
-    }
+    },
+    "editor.lightbulb.enabled": false
 }

@@ -98,7 +98,7 @@ source $ZSH/oh-my-zsh.sh
 #
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
-alias ssync="/opt/homebrew/bin/python3 /Users/basil/uni/general/sync/sync.py"
+#alias ssync="/opt/homebrew/bin/python3 /Users/basil/uni/general/sync/sync.py"
 
 export CFLAGS="-Wall -Wextra -Werror -O2 -std=c99 -pedantic"
 
@@ -114,9 +114,9 @@ if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%%
 #fi
 #cd $todaysWorkspace
 
-function toRaspberry() {scp -r $1 basil@192.168.1.30:/home/basil/}
-function fromRaspberry() {scp -r basil@192.168.1.30:$1 /Users/basil/Desktop/}
+function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
+function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
 alias dev="cd /Users/basil/Developer"
-alias emacs="emacs -nw"
+#alias emacs="emacs -nw"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"

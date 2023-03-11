@@ -3,6 +3,7 @@ if (match(system("hostname -s"), 'Macintosh') >= 0)
         Plug 'ActivityWatch/aw-watcher-vim'
         call plug#end()
 endif
+"some of the following forked from geohot
 set nocompatible
 filetype plugin indent on
 syntax on
