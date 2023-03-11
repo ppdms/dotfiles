@@ -14,9 +14,8 @@
         "editorOverviewRuler.errorForeground": "#0000",
         "editorOverviewRuler.warningForeground": "#0000",
         "editorOverviewRuler.infoForeground": "#0000",
-        "editorOverviewRuler.bracketMatchForeground": "#0000",
+        "editorOverviewRuler.bracketMatchForeground": "#0000"
     },
-    //"editor.renderLineHighlight":"none",
     "window.menuBarVisibility": "compact",
     "editor.fontFamily": "'JetBrains Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.wordWrap": "on",
