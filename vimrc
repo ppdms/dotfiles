@@ -3,6 +3,7 @@ if (match(system("hostname -s"), 'Macintosh') >= 0)
         Plug 'ActivityWatch/aw-watcher-vim'
         call plug#end()
 endif
+set background=dark
 "some of the following forked from geohot
 set nocompatible
 filetype plugin indent on
@@ -14,3 +15,4 @@ set hlsearch
 set ruler
 set backspace=indent,eol,start
 highlight Comment ctermfg=green
+set shortmess+=I

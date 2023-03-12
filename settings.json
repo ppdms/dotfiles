@@ -16,13 +16,11 @@
         "editorOverviewRuler.infoForeground": "#0000",
         "editorOverviewRuler.bracketMatchForeground": "#0000"
     },
-    "window.menuBarVisibility": "compact",
     "editor.fontFamily": "'JetBrains Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.wordWrap": "on",
     "editor.insertSpaces": false,
     "editor.fontLigatures": true,
     "window.dialogStyle": "custom",
-    "latex-workshop.view.pdf.viewer": "tab",
     "workbench.editor.untitled.hint": "hidden",
     "git.autofetch": true,
     "editor.accessibilitySupport": "off",
@@ -71,10 +69,6 @@
     "explorer.excludeGitIgnore": true,
     "window.restoreWindows": "folders",
     "editor.lineNumbers": "on",
-    "gitlens.statusBar.enabled": false,
-    "gitlens.codeLens.enabled": false,
-    "gitlens.currentLine.enabled": false,
-    "gitlens.hovers.currentLine.over": "line",
     "scm.diffDecorations": "none",
     "explorer.confirmDragAndDrop": false,
     "[html]": {
@@ -82,12 +76,10 @@
     },
     "editor.autoSurround": "never",
     "[python]": {
-
         "editor.wordBasedSuggestions": false
     },
     "security.workspace.trust.untrustedFiles": "open",
     "window.zoomLevel": 1,
-    "printcode.tabSize": 4,
     "editor.unicodeHighlight.ambiguousCharacters": false,
     "git.enableSmartCommit": true,
     "editor.unicodeHighlight.nonBasicASCII": false,
@@ -96,5 +88,8 @@
     "[java]": {
         "editor.defaultFormatter": "redhat.java"
     },
-    "editor.lightbulb.enabled": false
+    "editor.lightbulb.enabled": false,
+    "java.inlayHints.parameterNames.enabled": "none",
+    "java.project.importHint": false,
+    "java.server.launchMode": "LightWeight"
 }
