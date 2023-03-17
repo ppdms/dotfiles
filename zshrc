@@ -118,5 +118,6 @@ function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
 function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
 alias dev="cd /Users/basil/Developer"
+alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
