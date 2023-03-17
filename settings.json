@@ -91,5 +91,8 @@
     "editor.lightbulb.enabled": false,
     "java.inlayHints.parameterNames.enabled": "none",
     "java.project.importHint": false,
-    "java.server.launchMode": "LightWeight"
+    "java.server.launchMode": "LightWeight",
+    "editor.stickyScroll.enabled": true,
+    "editor.autoClosingBrackets": "never",
+    "editor.autoIndent": "keep"
 }
