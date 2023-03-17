@@ -16,3 +16,10 @@ set ruler
 set backspace=indent,eol,start
 highlight Comment ctermfg=green
 set shortmess+=I
+set wrap
+set linebreak
+set formatoptions=ro
+set comments=b:-
+set breakindentopt=shift:4
+set breakindent
+set autoindent
