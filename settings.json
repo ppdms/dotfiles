@@ -94,5 +94,9 @@
     "java.server.launchMode": "LightWeight",
     "editor.stickyScroll.enabled": true,
     "editor.autoClosingBrackets": "never",
-    "editor.autoIndent": "keep"
+    "editor.autoIndent": "keep",
+    "vim.cursorStylePerMode.normal": "underline",
+    "vim.cursorStylePerMode.insert": "line",
+    "vim.cursorStylePerMode.visual": "block",
+    "workbench.layoutControl.enabled": false
 }
