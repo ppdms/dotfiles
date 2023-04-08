@@ -28,6 +28,7 @@
     "telemetry.telemetryLevel": "off",
     "files.exclude": {
         ".DS_Store": true,
+        ".git/": true,
         ".vscode/": true,
         "*.code-workspace": true,
         "**/.DS_Store": false,
@@ -36,6 +37,7 @@
         "**/.svn": false,
         "**/CVS": false,
         "**/Thumbs.db": false,
+        "*/__pycache__/": true,
         "*/.DS_Store": true,
         "*/.editorconfig": true,
         "*/.git/": true,
@@ -98,5 +100,6 @@
     "vim.cursorStylePerMode.normal": "underline",
     "vim.cursorStylePerMode.insert": "line",
     "vim.cursorStylePerMode.visual": "block",
-    "workbench.layoutControl.enabled": false
+    "workbench.layoutControl.enabled": false,
+    "extensions.ignoreRecommendations": true
 }
