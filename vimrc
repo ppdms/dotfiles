@@ -1,8 +1,7 @@
-if (match(system("hostname -s"), 'Macintosh') >= 0)
-        call plug#begin()
-        Plug 'ActivityWatch/aw-watcher-vim'
-        call plug#end()
-endif
+"if (match(system("hostname -s"), 'Macintosh') >= 0)
+"        call plug#begin()
+"        call plug#end()
+"endif
 set background=dark
 "some of the following forked from geohot
 set nocompatible
