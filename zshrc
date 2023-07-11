@@ -107,7 +107,10 @@ export CFLAGS="-Wall -Wextra -Werror -O2 -std=c99 -pedantic"
 #fi
 
 autoload -U colors && colors
-if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+if command -v scutil &> /dev/null
+then
+        if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+fi
 #todaysWorkspace="/Users/basil/sandbox/$(date +'%Y%m%d')"
 #if [ ! -d $todaysWorkspace ]; then
 #  mkdir $todaysWorkspace
@@ -117,6 +120,7 @@ if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%%
 function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
 function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
+alias s="kitty +kitten ssh"
 alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"

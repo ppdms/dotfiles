@@ -30,6 +30,7 @@
         ".DS_Store": true,
         ".git/": true,
         ".vscode/": true,
+        "*.class": true,
         "*.code-workspace": true,
         "**/.DS_Store": false,
         "**/.git": false,
@@ -41,7 +42,8 @@
         "*/.DS_Store": true,
         "*/.editorconfig": true,
         "*/.git/": true,
-        "*/.gitattributes": true
+        "*/.gitattributes": true,
+        "*/*.class": true
     },
     "git.confirmSync": false,
     "C_Cpp.default.compilerPath": "clang",
@@ -81,7 +83,6 @@
         "editor.wordBasedSuggestions": false
     },
     "security.workspace.trust.untrustedFiles": "open",
-    "window.zoomLevel": 1,
     "editor.unicodeHighlight.ambiguousCharacters": false,
     "git.enableSmartCommit": true,
     "editor.unicodeHighlight.nonBasicASCII": false,
@@ -101,5 +102,11 @@
     "vim.cursorStylePerMode.insert": "line",
     "vim.cursorStylePerMode.visual": "block",
     "workbench.layoutControl.enabled": false,
-    "extensions.ignoreRecommendations": true
+    "extensions.ignoreRecommendations": true,
+    "workbench.editorAssociations": {
+        "*.plist": "default"
+    },
+    "editor.inlineSuggest.enabled": true,
+    "git.openRepositoryInParentFolders": "never",
+    "window.zoomLevel": 1
 }
