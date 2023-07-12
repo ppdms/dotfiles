@@ -22,3 +22,5 @@ set comments=b:-
 set breakindentopt=shift:4
 set breakindent
 set autoindent
+set mouse+=a
+vmap <C-C> "+y
