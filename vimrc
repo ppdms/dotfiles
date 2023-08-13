@@ -1,7 +1,15 @@
-"if (match(system("hostname -s"), 'Macintosh') >= 0)
-"        call plug#begin()
-"        call plug#end()
-"endif
+if (match(system("hostname -s"), 'Macintosh') >= 0)
+        call plug#begin()
+                Plug 'SirVer/ultisnips'
+                Plug 'honza/vim-snippets'
+                Plug 'tibabit/vim-templates'
+        call plug#end()
+endif
+
+let g:tmpl_author_name = 'Vasileios Papadimas'
+let g:tmpl_author_email = 'papadimas@protonmail.com'
+let g:tmpl_search_paths = ['/Users/basil/sandbox/dotfiles/templates']
+
 set background=dark
 "some of the following forked from geohot
 set nocompatible

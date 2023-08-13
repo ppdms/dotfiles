@@ -38,7 +38,7 @@ ZSH_THEME="jreese"
 # DISABLE_LS_COLORS="true"
 
 # Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
+DISABLE_AUTO_TITLE="true"
 
 # Uncomment the following line to enable command auto-correction.
 # ENABLE_CORRECTION="true"
@@ -129,3 +129,5 @@ alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+export PATH="/Users/basil/.config/emacs/bin:$PATH"
+
