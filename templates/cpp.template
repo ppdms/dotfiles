@@ -4,13 +4,12 @@
  * @created     : {{TIMESTAMP}}
  */
 
-#include "{{FILE}}.h"
+#include <iostream>
+#include <ostream>
+#using namespace std;
 
-{{CLASS}}::{{CLASS}}()
+int main(int argc, char *argv[])
 {
     {{CURSOR}}
-}
-
-{{CLASS}}::~{{CLASS}}()
-{
+    return 0;
 }
