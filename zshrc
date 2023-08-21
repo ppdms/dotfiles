@@ -101,7 +101,8 @@ source $ZSH/oh-my-zsh.sh
 #alias ssync="/opt/homebrew/bin/python3 /Users/basil/uni/general/sync/sync.py"
 
 export CFLAGS="-Wall -Wextra -Werror -O2 -std=c99 -pedantic"
-export CXXFLAGS="-Wall -Wextra -O3 -std=c++11 -pedantic"
+export CXXFLAGS="-Wall -Wextra -Wconversion -Wnon-virtual-dtor -Werror -O3 -std=c++17"
+# -pedantic
 
 #if command -v tmux &> /dev/null && [ -n "$PS1" ] && [[ ! "$TERM" =~ screen ]] && [[ ! "$TERM" =~ tmux ]] && [ -z "$TMUX" ]; then
 #  exec tmux

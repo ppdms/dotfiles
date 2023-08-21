@@ -3,12 +3,14 @@ if (match(system("hostname -s"), 'Macintosh') >= 0)
                 Plug 'SirVer/ultisnips'
                 Plug 'honza/vim-snippets'
                 Plug 'tibabit/vim-templates'
+                Plug 'vim-autoformat/vim-autoformat'
         call plug#end()
 endif
 
 let g:tmpl_author_name = 'Vasileios Papadimas'
 let g:tmpl_author_email = 'papadimas@protonmail.com'
 let g:tmpl_search_paths = ['/Users/basil/sandbox/dotfiles/templates']
+let g:formatdef_latexindent = '"latexindent -"'
 
 set background=dark
 "some of the following forked from geohot
@@ -32,3 +34,4 @@ set breakindent
 set autoindent
 set mouse+=a
 vmap <C-C> "+y
+noremap <F3> :Autoformat<CR>

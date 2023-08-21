@@ -109,5 +109,6 @@
     "editor.inlineSuggest.enabled": true,
     "git.openRepositoryInParentFolders": "never",
     "window.zoomLevel": 1,
-    "editor.rulers": []
+    "editor.rulers": [],
+    "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}"
 }
