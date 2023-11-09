@@ -1,6 +1,6 @@
 if (match(system("hostname -s"), 'Macintosh') >= 0)
         call plug#begin()
-                Plug 'SirVer/ultisnips'
+                "Plug 'SirVer/ultisnips'
                 Plug 'honza/vim-snippets'
                 Plug 'tibabit/vim-templates'
                 Plug 'vim-autoformat/vim-autoformat'
@@ -17,6 +17,8 @@ set background=dark
 set nocompatible
 filetype plugin indent on
 syntax on
+set tabstop=4
+set shiftwidth=4
 set expandtab
 set ai
 set number

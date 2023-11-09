@@ -21,7 +21,6 @@
     "editor.insertSpaces": false,
     "editor.fontLigatures": true,
     "window.dialogStyle": "custom",
-    "workbench.editor.untitled.hint": "hidden",
     "git.autofetch": true,
     "editor.accessibilitySupport": "off",
     "explorer.confirmDelete": false,
@@ -101,8 +100,8 @@
     "vim.cursorStylePerMode.normal": "underline",
     "vim.cursorStylePerMode.insert": "line",
     "vim.cursorStylePerMode.visual": "block",
-    "workbench.layoutControl.enabled": false,
     "extensions.ignoreRecommendations": true,
+    "workbench.editor.empty.hint": "hidden",
     "workbench.editorAssociations": {
         "*.plist": "default"
     },
@@ -110,5 +109,7 @@
     "git.openRepositoryInParentFolders": "never",
     "window.zoomLevel": 1,
     "editor.rulers": [],
-    "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}"
+    "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}",
+    "workbench.layoutControl.enabled": false,
+    "window.commandCenter": false
 }
