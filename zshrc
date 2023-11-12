@@ -108,7 +108,7 @@ export CXXFLAGS="-Wall -Wextra -Wconversion -Wnon-virtual-dtor -O3 -std=c++17"
 #  exec tmux
 #fi
 
-alias g++='eval /opt/homebrew/bin/g++-13 $CXXFLAGS'
+#alias g++='eval /opt/homebrew/bin/g++-13 $CXXFLAGS'
 #alias clang++=g++
 
 autoload -U colors && colors
@@ -129,6 +129,6 @@ alias s="kitty +kitten ssh"
 alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"
-export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-export PATH="/Users/basil/.config/emacs/bin:$PATH"
+#export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+#export PATH="/Users/basil/.config/emacs/bin:$PATH"
 
