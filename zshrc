@@ -129,11 +129,5 @@ alias s="kitty +kitten ssh"
 alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"
-<<<<<<< HEAD
-export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-export PATH="/home/basil/.local/bin:$PATH"
-=======
 #export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 #export PATH="/Users/basil/.config/emacs/bin:$PATH"
-
->>>>>>> 79937ab2f058f11eef4b0a14e7747031e57bb4b2
