@@ -112,10 +112,10 @@ export CXXFLAGS="-Wall -Wextra -Wconversion -Wnon-virtual-dtor -O3 -std=c++17"
 #alias clang++=g++
 
 autoload -U colors && colors
-if command -v scutil &> /dev/null
-then
-        if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
-fi
+#if command -v scutil &> /dev/null
+#then
+#        if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+#fi
 #todaysWorkspace="/Users/basil/sandbox/$(date +'%Y%m%d')"
 #if [ ! -d $todaysWorkspace ]; then
 #  mkdir $todaysWorkspace
@@ -128,6 +128,12 @@ function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/
 alias s="kitty +kitten ssh"
 alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
+
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+export LC_CTYPE="en_US.UTF-8"
+export LANG_ALL="en_US.UTF-8"
+
 #alias emacs="emacs -nw"
 #export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 #export PATH="/Users/basil/.config/emacs/bin:$PATH"
