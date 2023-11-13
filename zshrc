@@ -38,7 +38,7 @@ ZSH_THEME="jreese"
 # DISABLE_LS_COLORS="true"
 
 # Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
+DISABLE_AUTO_TITLE="true"
 
 # Uncomment the following line to enable command auto-correction.
 # ENABLE_CORRECTION="true"
@@ -101,13 +101,21 @@ source $ZSH/oh-my-zsh.sh
 #alias ssync="/opt/homebrew/bin/python3 /Users/basil/uni/general/sync/sync.py"
 
 export CFLAGS="-Wall -Wextra -Werror -O2 -std=c99 -pedantic"
+export CXXFLAGS="-Wall -Wextra -Wconversion -Wnon-virtual-dtor -O3 -std=c++17"
+# -pedantic
 
 #if command -v tmux &> /dev/null && [ -n "$PS1" ] && [[ ! "$TERM" =~ screen ]] && [[ ! "$TERM" =~ tmux ]] && [ -z "$TMUX" ]; then
 #  exec tmux
 #fi
 
+#alias g++='eval /opt/homebrew/bin/g++-13 $CXXFLAGS'
+#alias clang++=g++
+
 autoload -U colors && colors
-if [[ $(hostname -s) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+if command -v scutil &> /dev/null
+then
+        if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
+fi
 #todaysWorkspace="/Users/basil/sandbox/$(date +'%Y%m%d')"
 #if [ ! -d $todaysWorkspace ]; then
 #  mkdir $todaysWorkspace
@@ -117,8 +125,15 @@ if [[ $(hostname -s) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color
 function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
 function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
+alias s="kitty +kitten ssh"
 alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 #alias emacs="emacs -nw"
+<<<<<<< HEAD
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export PATH="/home/basil/.local/bin:$PATH"
+=======
+#export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+#export PATH="/Users/basil/.config/emacs/bin:$PATH"
+
+>>>>>>> 79937ab2f058f11eef4b0a14e7747031e57bb4b2
