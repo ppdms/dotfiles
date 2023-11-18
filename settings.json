@@ -111,5 +111,9 @@
     "editor.rulers": [],
     "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}",
     "workbench.layoutControl.enabled": false,
-    "window.commandCenter": false
+    "window.commandCenter": false,
+    "cmake.configureOnOpen": true,
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.external.osxExec": "kitty.app",
+    "terminal.integrated.fontFamily": "JetBrains Mono"
 }
