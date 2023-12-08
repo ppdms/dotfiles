@@ -155,7 +155,7 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 # Function to set DNS servers
-set_dns() {
+dns() {
   local network_service="Wi-Fi"
   case $1 in
     pihole)
@@ -172,9 +172,6 @@ set_dns() {
 
   echo "DNS set to $1"
 }
-
-alias dns=set_dns
-
 
 
 fortune | cowsay
