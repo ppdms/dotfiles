@@ -103,11 +103,11 @@
     "extensions.ignoreRecommendations": true,
     "workbench.editor.empty.hint": "hidden",
     "workbench.editorAssociations": {
-        "*.plist": "default"
+        "*.plist": "default",
+        "*.pdf": "default"
     },
     "editor.inlineSuggest.enabled": true,
     "git.openRepositoryInParentFolders": "never",
-    "window.zoomLevel": 1,
     "editor.rulers": [],
     "C_Cpp.clang_format_fallbackStyle": "{BasedOnStyle: Google, IndentWidth: 4}",
     "workbench.layoutControl.enabled": false,
@@ -115,5 +115,7 @@
     "cmake.configureOnOpen": true,
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.external.osxExec": "kitty.app",
-    "terminal.integrated.fontFamily": "JetBrains Mono"
+    "terminal.integrated.fontFamily": "JetBrains Mono",
+    "cmake.showOptionsMovedNotification": false,
+    "window.zoomLevel": 1
 }

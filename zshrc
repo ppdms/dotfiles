@@ -154,5 +154,27 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+# Function to set DNS servers
+set_dns() {
+  local network_service="Wi-Fi"
+  case $1 in
+    pihole)
+      networksetup -setdnsservers $network_service 192.168.1.30
+      ;;
+    quad11)
+      networksetup -setdnsservers $network_service 9.9.9.11
+      ;;
+    *)
+      echo "Invalid argument. Usage: dns pihole or dns quad11"
+      return 1
+      ;;
+  esac
+
+  echo "DNS set to $1"
+}
+
+alias dns=set_dns
+
+
 
 fortune | cowsay
