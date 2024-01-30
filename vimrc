@@ -35,5 +35,6 @@ set breakindentopt=shift:4
 set breakindent
 set autoindent
 set mouse+=a
+set termguicolors
 vmap <C-C> "+y
 noremap <F3> :Autoformat<CR>

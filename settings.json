@@ -79,7 +79,7 @@
     },
     "editor.autoSurround": "never",
     "[python]": {
-        "editor.wordBasedSuggestions": false
+        "editor.wordBasedSuggestions": "off"
     },
     "security.workspace.trust.untrustedFiles": "open",
     "editor.unicodeHighlight.ambiguousCharacters": false,
@@ -117,5 +117,7 @@
     "terminal.external.osxExec": "kitty.app",
     "terminal.integrated.fontFamily": "JetBrains Mono",
     "cmake.showOptionsMovedNotification": false,
+    "window.titleBarStyle": "custom",
+    "workbench.sideBar.location": "right",
     "window.zoomLevel": 1
 }

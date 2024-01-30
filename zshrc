@@ -154,6 +154,14 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+
+# These shell commands are for moOde/MPD
+alias mpd_pause="curl -X POST http://192.168.1.10/command/\?cmd=pause"
+alias mpd_mute="curl -X POST http://192.168.1.10/command/\?cmd=vol.sh%20mute"
+alias mpd_vol_up="curl -X POST http://192.168.1.10/command/\?cmd=vol.sh%20up%201"
+alias mpd_vol_down="curl -X POST http://192.168.1.10/command/\?cmd=vol.sh\%20dn\%201"
+
+
 # Function to set DNS servers
 dns() {
   local network_service="Wi-Fi"
@@ -175,3 +183,5 @@ dns() {
 
 
 fortune | cowsay
+
+eval "$(starship init zsh)"
