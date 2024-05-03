@@ -135,7 +135,7 @@ export LC_ALL="en_US.UTF-8"
 export LC_CTYPE="en_US.UTF-8"
 export LANG_ALL="en_US.UTF-8"
 
-#alias emacs="emacs -nw"
+alias e="emacs -nw"
 #export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 #export PATH="/Users/basil/.config/emacs/bin:$PATH"
 
@@ -181,7 +181,10 @@ dns() {
   echo "DNS set to $1"
 }
 
+export SSH_AUTH_SOCK=/Users/basil/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
 
 fortune | cowsay
 
-eval "$(starship init zsh)"
+if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then 
+    eval "$(starship init zsh)" 
+fi

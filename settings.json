@@ -47,14 +47,13 @@
     "git.confirmSync": false,
     "C_Cpp.default.compilerPath": "clang",
     "editor.renderWhitespace": "none",
-    "workbench.colorTheme": "GitHub Dark High Contrast",
     "editor.scrollbar.horizontal": "hidden",
     "editor.scrollbar.vertical": "visible",
     "problems.decorations.enabled": false,
     "outline.problems.enabled": false,
     "outline.problems.colors": false,
     "outline.problems.badges": false,
-    "C_Cpp.errorSquiggles": "Disabled",
+    "C_Cpp.errorSquiggles": "disabled",
     "editor.minimap.enabled": false,
     "editor.codeLens": false,
     "workbench.editor.closeOnFileDelete": true,
@@ -86,11 +85,10 @@
     "git.enableSmartCommit": true,
     "editor.unicodeHighlight.nonBasicASCII": false,
     "breadcrumbs.enabled": false,
-    "python.defaultInterpreterPath": "/opt/homebrew/bin/python3",
     "[java]": {
         "editor.defaultFormatter": "redhat.java"
     },
-    "editor.lightbulb.enabled": false,
+    "editor.lightbulb.enabled": "off",
     "java.inlayHints.parameterNames.enabled": "none",
     "java.project.importHint": false,
     "java.server.launchMode": "LightWeight",
@@ -115,9 +113,9 @@
     "cmake.configureOnOpen": true,
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.external.osxExec": "kitty.app",
-    "terminal.integrated.fontFamily": "JetBrains Mono",
+    "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font Mono",
     "cmake.showOptionsMovedNotification": false,
     "window.titleBarStyle": "custom",
-    "workbench.sideBar.location": "right",
-    "window.zoomLevel": 1
+    "window.zoomLevel": 1,
+    "window.customTitleBarVisibility": "windowed"
 }
