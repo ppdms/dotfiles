@@ -117,5 +117,11 @@
     "cmake.showOptionsMovedNotification": false,
     "window.titleBarStyle": "custom",
     "window.zoomLevel": 1,
-    "window.customTitleBarVisibility": "windowed"
+    "window.customTitleBarVisibility": "windowed",
+    "github.copilot.editor.enableAutoCompletions": true,
+    "cmake.pinnedCommands": [
+        "workbench.action.tasks.configureTaskRunner",
+        "workbench.action.tasks.runTask"
+    ],
+    "python.defaultInterpreterPath": "/Users/basil/Developer/shenanigans"
 }

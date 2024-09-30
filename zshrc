@@ -108,25 +108,12 @@ export CXXFLAGS="-Wall -Wextra -Wconversion -Wnon-virtual-dtor -O3 -std=c++17"
 #  exec tmux
 #fi
 
-#alias g++='eval /opt/homebrew/bin/g++-13 $CXXFLAGS'
-#alias clang++=g++
-
 autoload -U colors && colors
-#if command -v scutil &> /dev/null
-#then
-#        if [[ $(scutil --get LocalHostName) = 'Macintosh' ]]; then PS1="%F{015}%K{000}%% %{$reset_color%}" fi
-#fi
-#todaysWorkspace="/Users/basil/sandbox/$(date +'%Y%m%d')"
-#if [ ! -d $todaysWorkspace ]; then
-#  mkdir $todaysWorkspace
-#fi
-#cd $todaysWorkspace
 
 function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
 function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
 alias s="kitten ssh"
-alias dev="cd /Users/basil/Developer"
 alias klar="clear && printf '\e[3J'"
 alias bus="curl -s -A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\" http://telematics.oasa.gr/api/\?act\=getStopArrivals\&p1\=380042 | jq -r '.[0].btime2' | figlet"
 
@@ -134,26 +121,6 @@ export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 export LC_CTYPE="en_US.UTF-8"
 export LANG_ALL="en_US.UTF-8"
-
-alias e="emacs -nw"
-#export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-#export PATH="/Users/basil/.config/emacs/bin:$PATH"
-
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/opt/homebrew/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/opt/homebrew/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/opt/homebrew/anaconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/opt/homebrew/anaconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
-
 
 # These shell commands are for moOde/MPD
 alias mpd_pause="curl -X POST http://192.168.1.10/command/\?cmd=pause"
@@ -183,8 +150,14 @@ dns() {
 
 export SSH_AUTH_SOCK=/Users/basil/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh
 
-fortune | cowsay
-
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then 
     eval "$(starship init zsh)" 
 fi
+
+alias python=/opt/homebrew/bin/python3
+
+export PATH="$PATH:/Users/basil/.local/bin"
+
+export GPG_TTY=$(tty)
+
+source /Users/basil/Developer/env/bin/activate
