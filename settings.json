@@ -46,7 +46,7 @@
     },
     "git.confirmSync": false,
     "C_Cpp.default.compilerPath": "clang",
-    "editor.renderWhitespace": "none",
+    "editor.renderWhitespace": "all",
     "editor.scrollbar.horizontal": "hidden",
     "editor.scrollbar.vertical": "visible",
     "problems.decorations.enabled": false,
@@ -86,7 +86,7 @@
     "editor.unicodeHighlight.nonBasicASCII": false,
     "breadcrumbs.enabled": false,
     "[java]": {
-        "editor.defaultFormatter": "redhat.java"
+        "editor.defaultFormatter": "Oracle.oracle-java"
     },
     "editor.lightbulb.enabled": "off",
     "java.inlayHints.parameterNames.enabled": "none",
@@ -123,5 +123,7 @@
         "workbench.action.tasks.configureTaskRunner",
         "workbench.action.tasks.runTask"
     ],
-    "python.defaultInterpreterPath": "/Users/basil/Developer/shenanigans"
+    "python.defaultInterpreterPath": "/Users/basil/Developer/env",
+    "chat.editing.alwaysSaveWithGeneratedChanges": true,
+    "workbench.colorTheme": "Gruvbox Dark Hard"
 }

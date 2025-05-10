@@ -113,6 +113,7 @@ autoload -U colors && colors
 function toRaspberry() {scp -r /Users/basil/$1 basil@192.168.1.30:/home/basil/}
 function fromRaspberry() {scp -r basil@192.168.1.30:/home/basil/$1 /Users/basil/Desktop/}
 
+alias eclass="(cd /Users/basil/Developer/tree-eclass/prod/; java -jar tree-eclass.jar)"
 alias s="kitten ssh"
 alias klar="clear && printf '\e[3J'"
 alias bus="curl -s -A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\" http://telematics.oasa.gr/api/\?act\=getStopArrivals\&p1\=380042 | jq -r '.[0].btime2' | figlet"
@@ -160,4 +161,8 @@ export PATH="$PATH:/Users/basil/.local/bin"
 
 export GPG_TTY=$(tty)
 
+(gpg-connect-agent updatestartuptty /bye &>/dev/null &)
+
+
 source /Users/basil/Developer/env/bin/activate
+
