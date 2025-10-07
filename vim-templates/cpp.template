@@ -1,0 +1,16 @@
+/**
+ * @author      : {{NAME}} ({{EMAIL}})
+ * @file        : {{FILEE}}
+ * @created     : {{TIMESTAMP}}
+ */
+
+#include <iostream>
+#include <ostream>
+using std::cout;
+using std::endl;
+
+int main(int argc, char *argv[])
+{
+    {{CURSOR}}
+    return 0;
+}
