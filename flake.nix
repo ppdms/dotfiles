@@ -112,7 +112,7 @@
           
           shellAliases = {
             # Darwin rebuild aliases
-            switch = "GITHUB_TOKEN=$(SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\\n') sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens \"github.com=$GITHUB_TOKEN\"";
+            switch = ''GITHUB_TOKEN=$(SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n') sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens "github.com=$GITHUB_TOKEN"'';
             switch-update = "cd ~/.config/nix/public && nix flake update && switch";
             secrets = "cd ~/.config/nix/private/secrets && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops secrets.yaml";
             
