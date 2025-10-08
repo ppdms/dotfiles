@@ -125,5 +125,6 @@
   "vim.cursorStylePerMode.insert": "line",
   "vim.cursorStylePerMode.visual": "block",
   "github.copilot.editor.enableAutoCompletions": true,
-  "chat.editing.alwaysSaveWithGeneratedChanges": true
+  "chat.editing.alwaysSaveWithGeneratedChanges": true,
+  "editor.formatOnSave": true
 }

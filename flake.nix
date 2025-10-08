@@ -116,7 +116,7 @@
           
           shellAliases = {
             # Darwin rebuild aliases
-            switch = ''GITHUB_TOKEN=$(SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n') sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens "github.com=$GITHUB_TOKEN"'';
+            switch = ''TOKEN=$(SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n') && sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens "github.com=$TOKEN"'';
             switch-update = "cd ~/.config/nix/public && nix flake update && switch";
             secrets = "cd ~/.config/nix/private/secrets && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops secrets.yaml";
             
@@ -237,8 +237,13 @@
           enableZshIntegration = true;
         };
 
-        # VS Code settings management - settings are in a separate JSON file
-        home.file."Library/Application Support/Code/User/settings.json".source = ./vscode-settings.json;
+        # VS Code settings management - create symlink from VS Code's location to our git-tracked file
+        # This allows VS Code to write changes while keeping them in version control
+        home.activation.vscodeSettings = config.lib.dag.entryAfter ["writeBoundary"] ''
+          $DRY_RUN_CMD mkdir -p "$HOME/Library/Application Support/Code/User"
+          $DRY_RUN_CMD rm -f "$HOME/Library/Application Support/Code/User/settings.json"
+          $DRY_RUN_CMD ln -sf "$HOME/.config/nix/public/vscode-settings.json" "$HOME/Library/Application Support/Code/User/settings.json"
+        '';
 
         # Kitty configuration - kitty is installed via Homebrew
         home.file.".config/kitty/kitty.conf".source = ./kitty.conf;
