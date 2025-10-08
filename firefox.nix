@@ -13,15 +13,10 @@
       id = 0;
       search = {
         force = true;
-        default = "kagi";
-        privateDefault = "ddg";
-        order = ["kagi" "ddg" "google"];
+        default = "google";
+        privateDefault = "google";
+        order = ["google"];
         engines = {
-          kagi = {
-            name = "Kagi";
-            urls = [{template = "https://kagi.com/search?q={searchTerms}";}];
-            icon = "https://kagi.com/favicon.ico";
-          };
           bing.metaData.hidden = true;
         };
       };
@@ -98,19 +93,18 @@
         "toolkit.telemetry.unifiedIsOptIn" = false;
         "toolkit.telemetry.updatePing.enabled" = false;
 
-        # Disable fx accounts
-        "identity.fxaccounts.enabled" = false;
+        # Enable fx accounts for sync
+        "identity.fxaccounts.enabled" = true;
         # Disable "save password" prompt
         "signon.rememberSignons" = false;
         # Harden
         "privacy.trackingprotection.enabled" = true;
         "dom.security.https_only_mode" = true;
-        # Remove close button
-        "browser.tabs.inTitlebar" = 0;
-        # Vertical tabs
-        "sidebar.verticalTabs" = true;
-        "sidebar.revamp" = true;
-        "sidebar.main.tools" = ["history" "bookmarks"];
+        # Use native macOS title bar for compact layout
+        "browser.tabs.inTitlebar" = 1;
+        # Vertical tabs disabled
+        "sidebar.verticalTabs" = false;
+        "sidebar.revamp" = false;
         # Layout
         "browser.uiCustomization.state" = builtins.toJSON {
           placements = {
