@@ -46,6 +46,9 @@
         # If you're on an Intel system, replace with "x86_64-darwin"
         nixpkgs.hostPlatform = "aarch64-darwin";
 
+        # Allow unfree packages
+        nixpkgs.config.allowUnfree = true;
+
         # Declare the user that will be running `nix-darwin`.
         users.users.${systemConfig.system.username} = {
           name = systemConfig.system.username;
@@ -73,7 +76,7 @@
 
           taps = [];
           brews = [ "neovim" "gh" "age-plugin-se" ];
-          casks = [ "google-chrome" "maccy" "linearmouse" "winbox" "tailscale-app" "cloudflare-warp" "secretive" "keepassxc" "kekaexternalhelper" "keka" "betterdisplay" "font-jetbrains-mono-nerd-font" "rectangle" "visual-studio-code"  "stats" "firefox" "iterm2" "microsoft-edge" "kitty" ];
+          casks = [ "google-chrome" "maccy" "linearmouse" "winbox" "tailscale-app" "cloudflare-warp" "secretive" "keepassxc" "kekaexternalhelper" "keka" "betterdisplay" "font-jetbrains-mono-nerd-font" "rectangle" "visual-studio-code" "stats" "firefox" "iterm2" "microsoft-edge" "kitty" ];
         };
       };
       homeconfig = { pkgs, config, ... }: {
@@ -89,6 +92,7 @@
         imports = [
           "${nix-private}/secrets/sops-config.nix"
           "${nix-private}/ssh-helpers.nix"
+          (import ./firefox.nix { inherit pkgs config; inherit systemConfig; })
         ];
 
         home.sessionVariables = {
