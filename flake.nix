@@ -70,7 +70,17 @@
           security.pam.services.sudo_local.touchIdAuth = true;
 
           # Finder settings
-          system.defaults.finder.ShowPathbar = true;
+          system.defaults.finder.ShowPathbar = false;
+          system.defaults.finder.AppleShowAllExtensions = true;
+          system.defaults.finder.FXDefaultSearchScope = "SCcf";
+          system.defaults.finder.FXEnableExtensionChangeWarning = false;
+          system.defaults.finder.NewWindowTarget = "Home";
+          # system.defaults.finder.QuitMenuItem = true;
+          system.defaults.finder.ShowExternalHardDrivesOnDesktop = false;
+          system.defaults.finder.ShowRemovableMediaOnDesktop = false;
+          system.defaults.finder._FXShowPosixPathInTitle = true;
+          system.defaults.finder._FXSortFoldersFirst = true;
+          system.defaults.finder._FXSortFoldersFirstOnDesktop = true;
 
           # Create /etc/zshrc that loads the nix-darwin environment.
           programs.zsh.enable = true;
