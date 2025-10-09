@@ -125,5 +125,6 @@
   },
   "workbench.layoutControl.enabled": false,
   "workbench.layoutControl.type": "toggles",
-  "workbench.startupEditor": "none"
+  "workbench.startupEditor": "none",
+  "chat.editing.confirmEditRequestRemoval": false
 }

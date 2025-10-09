@@ -88,6 +88,7 @@
           environment.systemPackages = with pkgs; [
             git
             openssh
+            sshpass
             zsh
             bash
             coreutils
@@ -236,10 +237,7 @@
                 eval "$(starship init zsh)" 
               fi
 
-              # Activate Python virtual environment if it exists
-              if [ -f /Users/basil/Developer/env/bin/activate ]; then
-                source /Users/basil/Developer/env/bin/activate
-              fi
+              [[ "$TERM_PROGRAM" == "vscode" ]] && . "/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh"
             '';
 
             oh-my-zsh = {
