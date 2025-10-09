@@ -1,4 +1,4 @@
-# ~/.config/nix/flake.nix
+# ~/.config/nix/public/flake.nix
 
 {
   description = "My system configuration";
@@ -324,7 +324,10 @@
           '';
 
           # Kitty configuration - kitty is installed via Homebrew
-          home.file.".config/kitty/kitty.conf".source = ./kitty.conf;
+          home.file.".config/kitty/kitty.conf".source = ./kitty/kitty.conf;
+          home.file.".config/kitty/themes/Gruvbox_Dark_Hard.conf".source = ./kitty/Gruvbox_Dark_Hard.conf;
+
+          home.file.".hushlogin".text = "";
 
           # Vim templates directory
           home.file.".config/nix/public/vim-templates" = {
