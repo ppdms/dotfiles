@@ -82,14 +82,16 @@
           system.defaults.finder._FXSortFoldersFirst = true;
           system.defaults.finder._FXSortFoldersFirstOnDesktop = true;
 
-          # Create /etc/zshrc that loads the nix-darwin environment.
+          # Create /etc/zshrc and /etc/fish/config.fish that loads the nix-darwin environment.
           programs.zsh.enable = true;
+          programs.fish.enable = true;
 
           environment.systemPackages = with pkgs; [
             git
             openssh
             sshpass
             zsh
+            fish
             bash
             coreutils
             findutils
@@ -123,6 +125,7 @@
               "age-plugin-se"
             ];
             casks = [
+              "obsidian"
               "dbeaver-community"
               "google-chrome"
               "maccy"
@@ -162,6 +165,11 @@
             oh-my-zsh
             openssh
             starship
+            fzf
+            grc
+            fishPlugins.done
+            fishPlugins.forgit
+            fishPlugins.grc
           ];
 
           # Import private configuration (secrets and ssh-helpers)
@@ -181,11 +189,150 @@
             LC_CTYPE = "en_US.UTF-8";
             LANG_ALL = "en_US.UTF-8";
             GPG_TTY = "$(tty)";
+            GOPATH = "$HOME/Developer/go";
           };
 
           home.sessionPath = [
             "$HOME/.local/bin"
+            "$HOME/Developer/go/bin"
           ];
+
+          programs.fish = {
+            enable = true;
+
+            shellAliases = {
+              # Darwin rebuild aliases (note: 'switch' is a reserved keyword in Fish)
+              rebuild = "env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | xargs -I {} sudo darwin-rebuild switch --flake $HOME/.config/nix/public --option access-tokens 'github.com={}'";
+              rebuild-update = "cd $HOME/.config/nix/public; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | read -l TOKEN; and nix flake update --option access-tokens \"github.com=$TOKEN\"; and sudo darwin-rebuild switch --flake . --option access-tokens \"github.com=$TOKEN\"";
+              secrets = "cd $HOME/.config/nix/private/secrets; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops secrets.yaml";
+
+              # Utility aliases
+              s = "kitten ssh";
+              klar = "clear && printf '\\e[3J'";
+            };
+
+            shellInit = ''
+              # Disable greeting message
+              set -g fish_greeting
+
+              # Initialize Homebrew
+              eval (/opt/homebrew/bin/brew shellenv)
+
+              # Set default SSH_AUTH_SOCK to Secretive
+              set -gx SSH_AUTH_SOCK "/Users/basil/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh"
+
+              # Fish syntax highlighting colors
+              set -g fish_color_autosuggestion '555' 'brblack'
+              set -g fish_color_cancel -r
+              set -g fish_color_command --bold
+              set -g fish_color_comment red
+              set -g fish_color_cwd green
+              set -g fish_color_cwd_root red
+              set -g fish_color_end brmagenta
+              set -g fish_color_error brred
+              set -g fish_color_escape 'bryellow' '--bold'
+              set -g fish_color_history_current --bold
+              set -g fish_color_host normal
+              set -g fish_color_match --background=brblue
+              set -g fish_color_normal normal
+              set -g fish_color_operator bryellow
+              set -g fish_color_param cyan
+              set -g fish_color_quote yellow
+              set -g fish_color_redirection brblue
+              set -g fish_color_search_match 'bryellow' '--background=brblack'
+              set -g fish_color_selection 'white' '--bold' '--background=brblack'
+              set -g fish_color_user brgreen
+              set -g fish_color_valid_path --underline
+            '';
+
+            interactiveShellInit = ''
+              # Network configuration function (DNS and Proxy)
+              function net
+                set mode $argv[1]
+                set network_service ""
+                set service_name ""
+                set device_name ""
+
+                # Get network services list and extract the first active one
+                set lines (networksetup -listnetworkserviceorder)
+                set i 1
+                while test $i -le (count $lines)
+                  if string match -q "*Hardware Port:*" $lines[$i]
+                    if test $i -gt 1
+                      set idx (math $i - 1)
+                      set service_name (string replace -r '.*\)\s*' "" $lines[$idx])
+                      set device_name (string replace -r '.*Device: ([^)]*)\).*' '$1' $lines[$i])
+                      if test -n "$device_name"; and ipconfig getifaddr "$device_name" &>/dev/null
+                        set network_service "$service_name"
+                        break
+                      end
+                    end
+                  end
+                  set i (math $i + 1)
+                end
+
+                if test -z "$network_service"
+                  echo "No active network service found."
+                  return 1
+                end
+
+                echo "Using network service: $network_service"
+
+                # Clear proxy and DNS by default
+                set proxy_pac_url ""
+                set dns_servers "Empty"
+
+                switch $mode
+                  case work
+                    set proxy_pac_url "http://proxyconf.glb.nokia.com/proxy.pac"
+                  case home
+                    set dns_servers "172.16.0.2" "fd00:dead:beef::2"
+                  case default
+                    set dns_servers "9.9.9.11" "2620:fe::fe"
+                  case '*'
+                    # default/reset mode: no proxy, system default DNS
+                end
+
+                # Apply DNS settings
+                networksetup -setdnsservers "$network_service" $dns_servers
+
+                # Apply proxy PAC settings
+                if test -n "$proxy_pac_url"
+                  networksetup -setautoproxyurl "$network_service" "$proxy_pac_url"
+                  networksetup -setautoproxystate "$network_service" on
+                else
+                  networksetup -setautoproxystate "$network_service" off
+                end
+              end
+
+              # VS Code shell integration
+              if test "$TERM_PROGRAM" = "vscode"
+                source "/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish"
+              end
+            '';
+
+            plugins = [
+              {
+                name = "done";
+                src = pkgs.fishPlugins.done.src;
+              }
+              {
+                name = "forgit";
+                src = pkgs.fishPlugins.forgit.src;
+              }
+              {
+                name = "grc";
+                src = pkgs.fishPlugins.grc.src;
+              }
+            ];
+          };
+
+          # FZF configuration
+          programs.fzf = {
+            enable = true;
+            enableFishIntegration = true;
+            enableZshIntegration = true;
+          };
 
           programs.zsh = {
             enable = true;
@@ -211,31 +358,69 @@
             };
 
             initContent = ''
-              # DNS switching function
-              dns() {
-                local network_service="Wi-Fi"
-                case $1 in
-                  pihole)
-                    networksetup -setdnsservers $network_service 192.168.1.30
+              # Initialize Homebrew
+              eval "$(/opt/homebrew/bin/brew shellenv)"
+
+              # Network configuration function (DNS and Proxy)
+              net() {
+                local mode="$1"
+                local network_service=""
+                local service_name=""
+                local device_name=""
+
+                # Get network services list and extract the first active one
+                local lines=("''${(@f)$(networksetup -listnetworkserviceorder)}")
+                for ((i = 1; i < ''${#lines[@]}; i++)); do
+                  if [[ "''${lines[i]}" =~ "Hardware Port:" ]]; then
+                    service_name="''${lines[i - 1]##*) }"
+                    device_name=$(echo "''${lines[i]}" | sed -n 's/.*Device: \([^)]*\))/\1/p')
+                    if [[ -n "$device_name" ]] && ipconfig getifaddr "$device_name" &>/dev/null; then
+                      network_service="$service_name"
+                      break
+                    fi
+                  fi
+                done
+
+                if [[ -z "$network_service" ]]; then
+                  echo "No active network service found."
+                  return 1
+                fi
+
+                echo "Using network service: $network_service"
+
+                # Clear proxy and DNS by default
+                local proxy_pac_url=""
+                local dns_servers=("Empty")
+
+                case "$mode" in
+                  work)
+                    proxy_pac_url="http://proxyconf.glb.nokia.com/proxy.pac"
                     ;;
-                  quad11)
-                    networksetup -setdnsservers $network_service 9.9.9.11
+                  home)
+                    dns_servers=("172.16.0.2" "fd00:dead:beef::2")
+                    ;;
+                  default)
+                    dns_servers=("9.9.9.11" "2620:fe::fe")
                     ;;
                   *)
-                    echo "Invalid argument. Usage: dns pihole or dns quad11"
-                    return 1
+                    # default/reset mode: no proxy, system default DNS
                     ;;
                 esac
-                echo "DNS set to $1"
+
+                # Apply DNS settings
+                networksetup -setdnsservers "$network_service" "''${dns_servers[@]}"
+
+                # Apply proxy PAC settings
+                if [[ -n "$proxy_pac_url" ]]; then
+                  networksetup -setautoproxyurl "$network_service" "$proxy_pac_url"
+                  networksetup -setautoproxystate "$network_service" on
+                else
+                  networksetup -setautoproxystate "$network_service" off
+                fi
               }
 
-              # GPG agent
-              (gpg-connect-agent updatestartuptty /bye &>/dev/null &)
-
-              # Starship prompt (if not in Apple Terminal)
-              if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then 
-                eval "$(starship init zsh)" 
-              fi
+              # # Initialize GPG agent
+              # (gpg-connect-agent updatestartuptty /bye &>/dev/null &)
 
               [[ "$TERM_PROGRAM" == "vscode" ]] && . "/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh"
             '';
@@ -311,6 +496,7 @@
           programs.starship = {
             enable = true;
             enableZshIntegration = true;
+            enableFishIntegration = true;
           };
 
           # VS Code settings management - create symlink from VS Code's location to our git-tracked file

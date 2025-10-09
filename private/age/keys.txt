@@ -1,0 +1,27 @@
+# Age encryption key for SOPS
+#
+# This file should contain your age private key used to decrypt secrets.
+#
+# To generate a new age key:
+# 1. Install age: nix-shell -p age
+# 2. Generate a key: age-keygen -o keys.txt
+#
+# For macOS with Secure Enclave integration (age-plugin-se):
+# 1. Install age-plugin-se: nix-shell -p age-plugin-se
+# 2. Generate a key stored in Secure Enclave:
+#    age-plugin-se -o keys.txt
+#    (This will create a key protected by TouchID/passcode)
+#
+# Format:
+# # created: YYYY-MM-DDTHH:MM:SSZ
+# # public key: age1...
+# AGE-SECRET-KEY-1...
+#
+# Or for Secure Enclave (age-plugin-se):
+# # created: YYYY-MM-DDTHH:MM:SSZ
+# # access control: any biometry or passcode
+# # public key: age1se1...
+# AGE-PLUGIN-SE-1...
+#
+# ⚠️  IMPORTANT: Keep this file secure and never commit it to version control!
+# ⚠️  Add this to your .gitignore: private/age/keys.txt

@@ -27,7 +27,6 @@
   "editor.codeLens": false,
   "editor.colorDecorators": false,
   "editor.folding": true,
-  "editor.fontFamily": "'JetBrains Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
   "editor.fontLigatures": true,
   "editor.glyphMargin": false,
   "editor.hideCursorInOverviewRuler": true,
@@ -88,7 +87,7 @@
   "security.workspace.trust.untrustedFiles": "open",
   "telemetry.telemetryLevel": "off",
   "terminal.external.osxExec": "kitty.app",
-  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.defaultProfile.osx": "fish",
   "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font Mono",
   "terminal.integrated.shellIntegration.enabled": true,
   "vim.cursorStylePerMode.insert": "line",
@@ -126,5 +125,6 @@
   "workbench.layoutControl.enabled": false,
   "workbench.layoutControl.type": "toggles",
   "workbench.startupEditor": "none",
-  "chat.editing.confirmEditRequestRemoval": false
+  "chat.editing.confirmEditRequestRemoval": false,
+  "editor.fontFamily": "'JetBrainsMono Nerd Font Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'"
 }
