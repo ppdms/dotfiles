@@ -9,13 +9,14 @@ This repository contains my personal Nix configuration files for macOS using hom
 This directory contains all shareable configuration files that don't contain secrets:
 
 - **`flake.nix`** - Main Nix flake configuration
-- **`flake.lock`** - Locked dependencies for reproducibility
 - **`firefox.nix`** - Firefox browser configuration
+- **`ssh-helpers.nix`** - Generic SSH helper functions (imports host-specific config from private/)
 - **`userChrome.css`** - Firefox custom CSS
 - **`vscode-settings.json`** - Visual Studio Code settings
 - **`kitty/`** - Kitty terminal emulator configuration
   - `kitty.conf` - Main configuration
   - `Gruvbox_Dark_Hard.conf` - Color scheme
+- **`scripts/`** - Utility scripts for secrets management and SSH setup
 - **`vim-templates/`** - File templates for various programming languages
 - **`private/`** - Template files for private configuration (see below)
 
@@ -25,36 +26,42 @@ This directory contains all shareable configuration files that don't contain sec
 
 The `private` folder should be created at `~/.config/nix/private/` (one level up from this public folder) and should contain:
 
-- **`github-token.nix`** - GitHub personal access token configuration
-- **`system-config.nix`** - System-specific settings (hostname, username, email, etc.)
-- **`ssh-helpers.nix`** - SSH wrapper functions with SOPS integration
-- **`age/keys.txt`** - Age encryption key for SOPS (protected by TouchID on macOS)
+- **`env.nix`** - Environment-specific settings (hostname, username, email, SSH host patterns, etc.)
+- **`age/`** - Age encryption keys
+  - `keys.txt` - Secure Enclave key for SOPS (protected by TouchID on macOS)
+  - `backup-key.txt` - Backup age key (stored encrypted in secrets.yaml + kept safe offline)
 - **`secrets/`** - Encrypted secrets directory
   - `secrets.yaml` - SOPS-encrypted secrets (SSH keys, tokens, etc.)
-  - `sops-config.nix` - SOPS configuration
+  - `.sops.yaml` - SOPS configuration
+  - `backups/` - Timestamped backup archives encrypted with backup key only
 
 ## 🔒 Secrets Management
 
 This configuration uses [SOPS (Secrets OPerationS)](https://github.com/mozilla/sops) with [age encryption](https://github.com/FiloSottile/age) to manage secrets securely.
 
-## 🔑 Automated Passphrase-Protected Backup System
+## 🔑 Automated Backup System for Secrets
 
-To enable portable, passphrase-protected backups of your secrets (removing Secure Enclave limitations), this setup provides:
+To enable portable, hardware-independent backups of your secrets (removing Secure Enclave limitations), this setup provides:
 
-- A passphrase-protected age key for backup
-- The passphrase itself is stored in `secrets.yaml`, encrypted with your Secure Enclave key
-- A wrapper script that, every time you edit secrets, automatically rekeys and backs up your secrets
+- A regular age backup key that can decrypt secrets on any system
+- The backup key itself is stored encrypted in `secrets.yaml` (protected by your Secure Enclave key)
+- A cleartext copy stored securely offline for emergency recovery
+- A wrapper script that automatically rekeys and backs up your secrets every time you edit them
 
 ### How it works
 
-1. The script decrypts the backup passphrase from `secrets.yaml` using SOPS (with Secure Enclave)
-2. You edit your secrets as usual
-3. The script rekeys `secrets.yaml` to include both the Secure Enclave and backup key
-4. A backup is created, encrypted only with the backup key (portable, passphrase-protected)
+1. Generate a backup age key (one-time setup)
+2. Store the key encrypted in `secrets.yaml` using your Secure Enclave key
+3. Keep a cleartext copy somewhere safe (password manager, encrypted USB, etc.)
+4. Every time you edit secrets through the wrapper script:
+   - Secrets are edited with SOPS (using Secure Enclave key)
+   - File is rekeyed to be encrypted with BOTH keys (Secure Enclave + backup key)
+   - A timestamped backup of the **decrypted plaintext** is created, encrypted with backup key only
+5. In an emergency (lost Mac, hardware failure), use the backup key to decrypt any backup archive
 
 ### Setup Steps
 
-See `public/scripts/README-secrets-backup.md` for full instructions.
+**Quick start:** See `public/scripts/README.md` for step-by-step instructions.
 
 **Usage:**
 
@@ -62,26 +69,44 @@ See `public/scripts/README-secrets-backup.md` for full instructions.
 secrets  # (runs the wrapper script, edits and backs up automatically)
 ```
 
-Backups are stored in `~/.config/nix/private/secrets/backups/`.
+Backups are stored in `~/.config/nix/private/secrets/backups/` as `.age` files, each containing the full decrypted secrets encrypted with your backup key only.
 
 ### Key Features
 
 - **On-demand decryption**: Secrets are decrypted only when needed, not at system activation
 - **TouchID integration**: Using `age-plugin-se` for Secure Enclave storage on macOS
-- **Automatic SSH key management**: SSH wrapper automatically decrypts and loads keys for specific hosts
-- **Confirmation on every use**: SSH agent requires explicit confirmation each time a key is used (like Secretive)
-- **Security-first**: Keys are removed from SSH agent immediately after use
+- **Dual SSH agent system**: 
+  - Default agent (Secretive): For Secure Enclave keys stored in Secretive app
+  - SOPS agent: For SOPS-encrypted keys, used automatically for specific hosts
+- **Automatic SSH key management**: SSH wrapper detects configured hosts and auto-decrypts keys
+- **Confirmation on every use**: SOPS agent requires explicit confirmation each time a key is used (like Secretive)
+- **Security-first**: Keys persist in SOPS agent but require confirmation before each use
 
-### How It Works
+### How SSH Key Management Works
 
-1. **Encryption**: Secrets are encrypted using age with a key stored in the Secure Enclave
-2. **SSH Wrapper**: Custom shell functions intercept SSH connections to specific hosts
-3. **Auto-decrypt**: When connecting to a configured host, the SSH key is decrypted (with TouchID prompt)
-4. **Temporary Loading**: Key is added to a separate SSH agent (`~/.ssh/sops-agent.sock`) with the `-c` (confirm) flag
-5. **Explicit Confirmation**: Each time the key is about to be used, SSH agent prompts for confirmation (system dialog)
-6. **Auto-cleanup**: Key is removed from agent immediately after SSH connection closes
+The configuration uses two SSH agents:
 
-**Security Note**: The `-c` flag makes SSH agent require confirmation at the agent level (OpenSSH feature), similar to how Secretive works. This requires `theseal/ssh-askpass` to provide the confirmation dialog on macOS. The binary is called automatically by ssh-agent when needed (no background service required). See `public/scripts/README-ssh-agent-security.md` for details.
+1. **Default SSH Agent (Secretive)**: 
+   - Used for all hosts by default
+   - Keys stored in macOS Secure Enclave via Secretive app
+   - Socket: `/Users/basil/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh`
+
+2. **SOPS SSH Agent**:
+   - Used automatically for specific configured hosts (e.g., `*.example.net`, `ansible-*`)
+   - Keys decrypted from SOPS secrets with TouchID prompt
+   - Socket: `~/.ssh/sops-agent.sock`
+   - Keys loaded with `-c` (confirm) flag for security
+
+**Workflow for SOPS-encrypted SSH keys:**
+
+1. **Pattern Detection**: SSH wrapper detects if hostname matches configured patterns
+2. **Auto-decrypt**: If match found, decrypts SSH key from secrets.yaml (TouchID prompt)
+3. **Key Loading**: Adds key to SOPS agent with `-c` flag (requires confirmation on use)
+4. **Connection**: SSH connects using SOPS agent
+5. **Confirmation Dialog**: Each time key is about to be used, system dialog prompts for confirmation
+6. **Persistence**: Key remains in agent (no need to re-decrypt) but still requires confirmation for each use
+
+**Security Note**: The `-c` flag makes SSH agent require confirmation at the agent level (OpenSSH feature), similar to how Secretive works. This requires `theseal/ssh-askpass` to provide the confirmation dialog on macOS. The binary is called automatically by ssh-agent when needed (no background service required).
 
 **First-time setup**: After installing this configuration, reload your shell to get the required environment variables:
 ```bash
@@ -110,29 +135,30 @@ See `public/scripts/SETUP-SSH-ASKPASS.md` for complete setup instructions and tr
    # Copy templates from public/private/ to ../private/
    cp -r ~/.config/nix/public/private/* ~/.config/nix/private/
    
-   # Edit with your information
-   $EDITOR ~/.config/nix/private/system-config.nix
-   $EDITOR ~/.config/nix/private/ssh-helpers.nix
+   # Edit with your information (system config + SSH host patterns)
+   $EDITOR ~/.config/nix/private/env.nix
    ```
 
-4. **Create your secrets file**:
+4. **Create your secrets file and SOPS config**:
    ```bash
-   # Create .sops.yaml in ~/.config/nix/
-   cat > ~/.config/nix/.sops.yaml << 'EOF'
+   # Create .sops.yaml in private/secrets/
+   cd ~/.config/nix/private/secrets
+   
+   # Get your public key from keys.txt
+   grep "public key:" ~/.config/nix/private/age/keys.txt
+   
+   # Create .sops.yaml
+   cat > .sops.yaml << 'EOF'
    keys:
      - &admin_age YOUR_AGE_PUBLIC_KEY_HERE
    creation_rules:
-     - path_regex: private/secrets/secrets.yaml$
+     - path_regex: .*\.yaml$
        key_groups:
          - age:
              - *admin_age
    EOF
    
-   # Get your public key from keys.txt (the line starting with "# public key:")
-   grep "public key:" ~/.config/nix/private/age/keys.txt
-   
    # Create and edit secrets file
-   cd ~/.config/nix/private/secrets
    sops secrets.yaml
    ```
 
@@ -146,11 +172,27 @@ See `public/scripts/SETUP-SSH-ASKPASS.md` for complete setup instructions and tr
    github_token: ghp_yourActualGitHubToken
    ```
 
-6. **Update ssh-helpers.nix** to match your hosts and secret names:
-   - Change host patterns (e.g., `\.example\.com$` to your domain)
-   - Update secret names (e.g., `your_ssh_key_name` to match your secrets.yaml keys)
+6. **Update env.nix** to match your SSH hosts and secret names:
+   - Change host patterns in `ssh.zsh.hostPatternCheck` and `ssh.fish.hostPatternCheck` (e.g., `\.example\.com$` to your domain)
+   - Update `ssh.secretName` to match the key name in your secrets.yaml
+   - Update `ssh.keyComment` to match your SSH key's comment
+   - Configure `ssh.sopsHosts` with your host patterns
+   - Update `ssh.defaultIdentityAgent` path to match your username
 
-7. **Add private directory to .gitignore**:
+7. **(Optional) Set up backup key** for portable, hardware-independent backups:
+   ```bash
+   # Generate backup key
+   age-keygen -o ~/.config/nix/private/age/backup-key.txt
+   
+   # Run setup script (updates .sops.yaml, guides you through adding key to secrets.yaml)
+   bash ~/.config/nix/public/scripts/setup-backup-key.sh
+   
+   # Store backup-key.txt somewhere safe (password manager, encrypted USB, etc.)
+   ```
+   
+   See `public/scripts/BACKUP-QUICKSTART.md` for detailed backup setup instructions.
+
+8. **Add private directory to .gitignore**:
    ```bash
    echo "private/" >> ~/.config/nix/.gitignore
    ```
@@ -163,22 +205,28 @@ The configuration provides several helpful commands:
 
 - **`sops-list`** - List keys currently loaded in the SOPS SSH agent
 - **`sops-clear`** - Clear all keys from the SOPS SSH agent
-- **`ssh-with-agent <secret_name> [ssh args...]`** - Manually SSH with a specific decrypted key
-- **`sops-ensure-key <secret_name>`** - Load a key into the SOPS agent (with 5-minute timeout)
+- **`ssh-with-agent <secret_name> [ssh args...]`** - Manually SSH with a specific decrypted key (adds, uses, then immediately removes)
+- **`sops-ensure-key <secret_name>`** - Load a key into the SOPS agent (persists with confirmation required)
 
 ### Automatic SSH Key Management
 
 The SSH wrapper automatically handles key decryption for configured hosts:
 
 ```bash
-# This will automatically:
-# 1. Detect it matches your configured pattern
-# 2. Prompt for TouchID to decrypt the key
-# 3. Load the key into SOPS agent
-# 4. Run SSH command
-# 5. Remove key from agent after connection closes
-ssh user@your-configured-host.example.com
+# For hosts matching configured patterns (e.g., *.example.net):
+# 1. Detects the hostname matches your configured pattern
+# 2. Prompts for TouchID to decrypt the key (first time only)
+# 3. Loads the key into SOPS agent with confirmation required (-c flag)
+# 4. Connects using SOPS agent
+# 5. Prompts for confirmation each time the key is about to be used
+ssh user@host.example.net
+
+# For all other hosts:
+# Uses default Secretive agent (Secure Enclave keys)
+ssh user@github.com
 ```
+
+**Key persistence**: Once loaded, SOPS keys remain in the agent (no need to re-enter TouchID), but you must confirm each use via system dialog. Use `sops-clear` to remove keys when done.
 
 ### Manual Secret Decryption
 
@@ -188,9 +236,25 @@ To manually decrypt a secret from `secrets.yaml`:
 # View a specific secret
 sops -d --extract '["secret_name"]' ~/.config/nix/private/secrets/secrets.yaml
 
-# Edit secrets file
+# Edit secrets file (recommended: use the backup wrapper)
+secrets  # This also creates automatic backups
+
+# Or edit directly (no backup)
 cd ~/.config/nix/private/secrets
 sops secrets.yaml
+```
+
+### Emergency Recovery
+
+If you lose access to your Secure Enclave key (new Mac, hardware failure):
+
+```bash
+# Decrypt from backup using your backup key
+age --decrypt -i /path/to/backup-key.txt \
+  ~/.config/nix/private/secrets/backups/secrets.yaml.TIMESTAMP.age > secrets.yaml
+
+# Or decrypt and view
+age --decrypt -i /path/to/backup-key.txt backup-file.age | less
 ```
 
 ## 📋 Template Files
@@ -238,36 +302,22 @@ nix build ~/.config/nix/public#darwinConfigurations.YOUR-HOSTNAME.system
 exec $SHELL
 ```
 
-**Important**: After first installation, reload your shell to get the SSH_ASKPASS environment variables. See `public/scripts/SETUP-SSH-ASKPASS.md` for details.
-
 ## 🔐 Security Best Practices
 
 1. **Never commit secrets**: Ensure `private/` is in `.gitignore`
 2. **Use strong encryption**: The age keys are protected by TouchID/Secure Enclave
 3. **Regular rotation**: Periodically rotate SSH keys and tokens
-4. **Backup safely**: Keep encrypted backups of `private/age/keys.txt`
-5. **Audit access**: Review `sops-list` to see what keys are loaded
-6. **Clean up**: Keys are automatically removed from agent after SSH sessions
-
-## 🛠️ Troubleshooting
-
-### SSH key not being decrypted
-
-1. Check if your host pattern matches in `ssh-helpers.nix`
-2. Verify the secret name matches what's in `secrets.yaml`
-3. Ensure age key file exists and is readable: `~/.config/nix/private/age/keys.txt`
-
-### TouchID not prompting
-
-1. Verify age-plugin-se is installed: `which age-plugin-se`
-2. Check if the key was created with Secure Enclave support
-3. Test decryption manually: `sops -d ~/.config/nix/private/secrets/secrets.yaml`
-
-### SOPS agent not starting
-
-1. Check if socket exists: `ls -la ~/.ssh/sops-agent.sock`
-2. Kill and restart: `pkill ssh-agent; exec $SHELL`
-3. Verify SSH_AUTH_SOCK is set correctly in your shell
+4. **Backup safely**: 
+   - Keep your `backup-key.txt` in a secure location (password manager, encrypted USB)
+   - Backup archives in `backups/` directory can be stored anywhere (they're encrypted)
+   - Consider keeping backup archives in cloud storage for redundancy
+5. **Audit access**: Review `sops-list` to see what keys are loaded in SOPS agent
+6. **Clean up**: 
+   - SOPS keys persist in agent (for convenience) but require confirmation on each use
+   - Use `sops-clear` to remove keys from SOPS agent when done
+   - Secretive keys are managed by the Secretive app
+7. **Test recovery**: Periodically test decrypting a backup to ensure your backup key works
+8. **Confirmation prompts**: Never blindly accept SSH key confirmation dialogs - verify the operation is expected
 
 ## 📚 Resources
 

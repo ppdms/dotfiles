@@ -17,7 +17,7 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Private configuration (includes secrets and ssh-helpers)
+    # Private configuration (includes secrets and SSH config)
     nix-private = {
       url = "git+file:/Users/basil/.config/nix/private";
       flake = false;
@@ -34,8 +34,8 @@
       nix-private,
     }:
     let
-      # Import system-specific configuration from private repo
-      systemConfig = import "${nix-private}/system-config.nix" { };
+      # Import environment configuration from private repo
+      systemConfig = import "${nix-private}/env.nix" { };
 
       configuration =
         { pkgs, ... }:
@@ -44,7 +44,7 @@
           nix.enable = false;
           # Necessary for using flakes on this system.
           nix.settings.experimental-features = "nix-command flakes";
-          # GitHub access token is passed via --option flag in switch alias
+          # GitHub access token is passed via NIX_CONFIG environment variable in switch alias
 
           system.configurationRevision = self.rev or self.dirtyRev or null;
 
@@ -180,10 +180,14 @@
             fishPlugins.grc
           ];
 
-          # Import private configuration (secrets and ssh-helpers)
+          # Import configuration (public SSH helpers + private secrets and SSH config)
           imports = [
             "${nix-private}/secrets/sops-config.nix"
-            "${nix-private}/ssh-helpers.nix"
+            (import ./ssh-helpers.nix {
+              inherit pkgs config;
+              lib = pkgs.lib;
+              envConfig = systemConfig;
+            })
             (import ./firefox.nix {
               inherit pkgs config;
               inherit systemConfig;
@@ -210,8 +214,8 @@
 
             shellAliases = {
               # Darwin rebuild aliases (note: 'switch' is a reserved keyword in Fish)
-              rebuild = "env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | xargs -I {} sudo darwin-rebuild switch --flake $HOME/.config/nix/public --option access-tokens 'github.com={}'";
-              rebuild-update = "cd $HOME/.config/nix/public; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | read -l TOKEN; and nix flake update --option access-tokens \"github.com=$TOKEN\"; and sudo darwin-rebuild switch --flake . --option access-tokens \"github.com=$TOKEN\"";
+              rebuild = "env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | read -l TOKEN; and env NIX_CONFIG=\"access-tokens = github.com=$TOKEN\" sudo -E darwin-rebuild switch --flake $HOME/.config/nix/public";
+              rebuild-update = "cd $HOME/.config/nix/public; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | read -l TOKEN; and env NIX_CONFIG=\"access-tokens = github.com=$TOKEN\" nix flake update; and env NIX_CONFIG=\"access-tokens = github.com=$TOKEN\" sudo -E darwin-rebuild switch --flake .";
               secrets = "bash $HOME/.config/nix/public/scripts/secrets-edit-backup.sh";
 
               # Utility aliases
@@ -350,8 +354,8 @@
 
             shellAliases = {
               # Darwin rebuild aliases
-              rebuild = ''SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | xargs -I {} sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens "github.com={}"'';
-              rebuild-update = ''cd ~/.config/nix/public && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | (read -r TOKEN; nix flake update --option access-tokens "github.com=$TOKEN" && sudo darwin-rebuild switch --flake . --option access-tokens "github.com=$TOKEN")'';
+              rebuild = ''SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | (read -r TOKEN; NIX_CONFIG="access-tokens = github.com=$TOKEN" sudo -E darwin-rebuild switch --flake ~/.config/nix/public)'';
+              rebuild-update = ''cd ~/.config/nix/public && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | (read -r TOKEN; NIX_CONFIG="access-tokens = github.com=$TOKEN" nix flake update && NIX_CONFIG="access-tokens = github.com=$TOKEN" sudo -E darwin-rebuild switch --flake .)'';
               secrets = "bash ~/.config/nix/public/scripts/secrets-edit-backup.sh";
 
               # Utility aliases

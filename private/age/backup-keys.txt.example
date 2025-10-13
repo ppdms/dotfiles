@@ -1,11 +1,23 @@
 # Example backup key file - Replace with your actual generated key
-# This key should be encrypted with a passphrase for portability
-# Generate with: age-keygen | age -p > backup-keys.txt.age
+# This is a regular age key (NOT passphrase-protected)
 # 
-# To use this key:
-# 1. Decrypt: age -d backup-keys.txt.age > backup-keys.txt
-# 2. Add to .sops.yaml
-# 3. Run: sops updatekeys secrets.yaml
+# Generate with: age-keygen -o backup-key.txt
+# 
+# Setup process:
+# 1. Generate key: age-keygen -o ~/.config/nix/private/age/backup-key.txt
+# 2. Run: bash ~/.config/nix/public/scripts/setup-backup-key.sh
+#    (This will update .sops.yaml and guide you through adding the key to secrets.yaml)
+# 3. Store the cleartext backup-key.txt somewhere safe:
+#    - Password manager (as secure note)
+#    - Encrypted USB drive
+#    - Secure cloud storage
+# 4. Use 'secrets' alias to edit - backups are created automatically
+#
+# The backup key allows you to:
+# - Decrypt secrets.yaml if you lose access to Secure Enclave
+# - Decrypt backup archives from ~/.config/nix/private/secrets/backups/
+#
+# See: public/scripts/BACKUP-QUICKSTART.md for complete instructions
 #
 # DO NOT commit this file unencrypted!
 
