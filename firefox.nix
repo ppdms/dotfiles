@@ -115,42 +115,69 @@
         # Layout
         "browser.uiCustomization.state" = builtins.toJSON {
           placements = {
-            unified-extensions-area = [ ];
             widget-overflow-fixed-list = [ ];
+            unified-extensions-area = [
+              "open_in_iina_firefox_iina_io-browser-action"
+              "openmultipleurls_ustat_de-browser-action"
+              "link-extractor_cssnr_com-browser-action"
+              "ublock0_raymondhill_net-browser-action"
+              "vpn_proton_ch-browser-action"
+              "_d7742d87-e61d-4b78-b8a1-b469842139fa_-browser-action"
+              "chrome-gnome-shell_gnome_org-browser-action"
+              "jid1-tsgsxbhncspbwq_jetpack-browser-action"
+              "passbolt_passbolt_com-browser-action"
+              "_testpilot-containers-browser-action"
+              "password-manager-firefox-extension_apple_com-browser-action"
+              "_3c078156-979c-498b-8990-85f7987dd929_-browser-action"
+            ];
             nav-bar = [
               "back-button"
               "forward-button"
-              "vertical-spacer"
               "stop-reload-button"
+              "vertical-spacer"
               "urlbar-container"
               "downloads-button"
-              "ublock0_raymondhill_net-browser-action"
-              "_testpilot-containers-browser-action"
-              "reset-pbm-toolbar-button"
               "unified-extensions-button"
+              "addon_darkreader_org-browser-action"
+              "_531906d3-e22f-4a6c-a102-8057b88a1a63_-browser-action"
             ];
-            toolbar-menubar = [ "menubar-items" ];
-            TabsToolbar = [ ];
-            vertical-tabs = [ "tabbrowser-tabs" ];
+            TabsToolbar = [
+              "firefox-view-button"
+              "tabbrowser-tabs"
+              "new-tab-button"
+              "alltabs-button"
+            ];
+            vertical-tabs = [ ];
             PersonalToolbar = [ "personal-bookmarks" ];
           };
           seen = [
-            "save-to-pocket-button"
-            "developer-button"
-            "ublock0_raymondhill_net-browser-action"
+            "open_in_iina_firefox_iina_io-browser-action"
+            "openmultipleurls_ustat_de-browser-action"
+            "link-extractor_cssnr_com-browser-action"
+            "vpn_proton_ch-browser-action"
+            "_d7742d87-e61d-4b78-b8a1-b469842139fa_-browser-action"
             "_testpilot-containers-browser-action"
+            "addon_darkreader_org-browser-action"
+            "chrome-gnome-shell_gnome_org-browser-action"
+            "jid1-tsgsxbhncspbwq_jetpack-browser-action"
+            "passbolt_passbolt_com-browser-action"
+            "password-manager-firefox-extension_apple_com-browser-action"
+            "ublock0_raymondhill_net-browser-action"
+            "_3c078156-979c-498b-8990-85f7987dd929_-browser-action"
+            "_531906d3-e22f-4a6c-a102-8057b88a1a63_-browser-action"
+            "developer-button"
             "screenshot-button"
           ];
           dirtyAreaCache = [
+            "unified-extensions-area"
             "nav-bar"
-            "PersonalToolbar"
-            "toolbar-menubar"
             "TabsToolbar"
-            "widget-overflow-fixed-list"
             "vertical-tabs"
+            "PersonalToolbar"
+            "widget-overflow-fixed-list"
           ];
           currentVersion = 23;
-          newElementCount = 10;
+          newElementCount = 7;
         };
       };
     };
