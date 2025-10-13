@@ -126,5 +126,6 @@
   "workbench.layoutControl.type": "toggles",
   "workbench.startupEditor": "none",
   "chat.editing.confirmEditRequestRemoval": false,
-  "editor.fontFamily": "'JetBrainsMono Nerd Font Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'"
+  "editor.fontFamily": "'JetBrainsMono Nerd Font Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+  "terminal.integrated.fontLigatures.enabled": true
 }

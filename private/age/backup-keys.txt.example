@@ -1,0 +1,14 @@
+# Example backup key file - Replace with your actual generated key
+# This key should be encrypted with a passphrase for portability
+# Generate with: age-keygen | age -p > backup-keys.txt.age
+# 
+# To use this key:
+# 1. Decrypt: age -d backup-keys.txt.age > backup-keys.txt
+# 2. Add to .sops.yaml
+# 3. Run: sops updatekeys secrets.yaml
+#
+# DO NOT commit this file unencrypted!
+
+# created: 2024-01-01T00:00:00Z
+# public key: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+AGE-SECRET-KEY-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

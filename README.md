@@ -37,11 +37,39 @@ The `private` folder should be created at `~/.config/nix/private/` (one level up
 
 This configuration uses [SOPS (Secrets OPerationS)](https://github.com/mozilla/sops) with [age encryption](https://github.com/FiloSottile/age) to manage secrets securely.
 
+## 🔑 Automated Passphrase-Protected Backup System
+
+To enable portable, passphrase-protected backups of your secrets (removing Secure Enclave limitations), this setup provides:
+
+- A passphrase-protected age key for backup
+- The passphrase itself is stored in `secrets.yaml`, encrypted with your Secure Enclave key
+- A wrapper script that, every time you edit secrets, automatically rekeys and backs up your secrets
+
+### How it works
+
+1. The script decrypts the backup passphrase from `secrets.yaml` using SOPS (with Secure Enclave)
+2. You edit your secrets as usual
+3. The script rekeys `secrets.yaml` to include both the Secure Enclave and backup key
+4. A backup is created, encrypted only with the backup key (portable, passphrase-protected)
+
+### Setup Steps
+
+See `public/scripts/README-secrets-backup.md` for full instructions.
+
+**Usage:**
+
+```fish
+secrets  # (runs the wrapper script, edits and backs up automatically)
+```
+
+Backups are stored in `~/.config/nix/private/secrets/backups/`.
+
 ### Key Features
 
 - **On-demand decryption**: Secrets are decrypted only when needed, not at system activation
 - **TouchID integration**: Using `age-plugin-se` for Secure Enclave storage on macOS
 - **Automatic SSH key management**: SSH wrapper automatically decrypts and loads keys for specific hosts
+- **Confirmation on every use**: SSH agent requires explicit confirmation each time a key is used (like Secretive)
 - **Security-first**: Keys are removed from SSH agent immediately after use
 
 ### How It Works
@@ -49,8 +77,17 @@ This configuration uses [SOPS (Secrets OPerationS)](https://github.com/mozilla/s
 1. **Encryption**: Secrets are encrypted using age with a key stored in the Secure Enclave
 2. **SSH Wrapper**: Custom shell functions intercept SSH connections to specific hosts
 3. **Auto-decrypt**: When connecting to a configured host, the SSH key is decrypted (with TouchID prompt)
-4. **Temporary Loading**: Key is added to a separate SSH agent (`~/.ssh/sops-agent.sock`)
-5. **Auto-cleanup**: Key is removed from agent immediately after SSH connection closes
+4. **Temporary Loading**: Key is added to a separate SSH agent (`~/.ssh/sops-agent.sock`) with the `-c` (confirm) flag
+5. **Explicit Confirmation**: Each time the key is about to be used, SSH agent prompts for confirmation (system dialog)
+6. **Auto-cleanup**: Key is removed from agent immediately after SSH connection closes
+
+**Security Note**: The `-c` flag makes SSH agent require confirmation at the agent level (OpenSSH feature), similar to how Secretive works. This requires `theseal/ssh-askpass` to provide the confirmation dialog on macOS. The binary is called automatically by ssh-agent when needed (no background service required). See `public/scripts/README-ssh-agent-security.md` for details.
+
+**First-time setup**: After installing this configuration, reload your shell to get the required environment variables:
+```bash
+exec $SHELL
+```
+See `public/scripts/SETUP-SSH-ASKPASS.md` for complete setup instructions and troubleshooting.
 
 ### Setting Up Your Own Private Configuration
 
@@ -196,7 +233,12 @@ cp -r ~/.config/nix/public/private/* ~/.config/nix/private/
 # Build and activate configuration
 nix build ~/.config/nix/public#darwinConfigurations.YOUR-HOSTNAME.system
 ./result/sw/bin/darwin-rebuild switch --flake ~/.config/nix/public
+
+# Reload shell to get new environment variables
+exec $SHELL
 ```
+
+**Important**: After first installation, reload your shell to get the SSH_ASKPASS environment variables. See `public/scripts/SETUP-SSH-ASKPASS.md` for details.
 
 ## 🔐 Security Best Practices
 

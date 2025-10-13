@@ -98,10 +98,15 @@
       # IMPORTANT! Check if any argument matches your SOPS patterns
       # Customize these patterns to match your specific hosts
       for arg in "$@"; do
-        if [[ "$arg" =~ \.example\.com$ ]] || [[ "$arg" =~ ^your-pattern- ]]; then
-          use_sops=true
-          break
-        fi
+        case "$arg" in
+          -*) continue ;;
+          *)
+            if [[ "$arg" =~ \.example\.com$ ]] || [[ "$arg" =~ ^your-pattern- ]]; then
+              use_sops=true
+              break
+            fi
+            ;;
+        esac
       done
       
       if $use_sops; then
@@ -223,9 +228,11 @@
       # IMPORTANT! Check if any argument matches your SOPS patterns
       # Customize these patterns to match your specific hosts
       for arg in $argv
-        if string match -qr '\.example\.com$' $arg; or string match -qr '^your-pattern-' $arg
-          set use_sops true
-          break
+        if not string match -q -- "-*" $arg
+          if string match -qr '\.example\.com$' $arg; or string match -qr '^your-pattern-' $arg
+            set use_sops true
+            break
+          end
         end
       end
       
@@ -233,17 +240,12 @@
         # Ensure key is loaded (replace with your secret name)
         sops-ensure-key your_ssh_key_name >/dev/null 2>&1
         
-        # Run SSH with SOPS agent
-        env SSH_AUTH_SOCK="$SOPS_SSH_AUTH_SOCK" command ssh $argv
-        set ssh_rc $status
-        
-        # Remove key from agent after SSH exits
-        env SSH_AUTH_SOCK="$SOPS_SSH_AUTH_SOCK" ssh-add -D >/dev/null 2>&1
-        
-        return $ssh_rc
+        # Run SSH with SOPS agent, using exec to replace shell process
+        exec env SSH_AUTH_SOCK="$SOPS_SSH_AUTH_SOCK" ssh $argv
       else
         # Use default SSH (Secretive agent or system default)
-        command ssh $argv
+        # Use exec to replace the shell process with SSH to preserve terminal behavior
+        exec ssh $argv
       end
     end
 

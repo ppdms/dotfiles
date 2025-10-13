@@ -3,8 +3,8 @@
   config,
   systemConfig,
   ...
-}: {
-  programs.browserpass.enable = true;
+}:
+{
   programs.firefox = {
     enable = true;
     # Use null to skip package installation (Firefox installed via Homebrew)
@@ -15,16 +15,16 @@
         force = true;
         default = "google";
         privateDefault = "google";
-        order = ["google"];
+        order = [ "google" ];
         engines = {
           bing.metaData.hidden = true;
         };
       };
-      bookmarks = {};
-      
+      bookmarks = { };
+
       # Enable userChrome.css
       userChrome = builtins.readFile ./userChrome.css;
-      
+
       settings = {
         "browser.startup.homepage" = "about:home";
         # Required to enable userChrome.css
@@ -52,20 +52,27 @@
         "browser.newtabpage.activity-stream.feeds.topsites" = false;
         "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
         "browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts" = false;
-        "browser.newtabpage.blocked" = builtins.listToAttrs (map (name: { inherit name; value = 1; }) [
-          # Youtube
-          "26UbzFJ7qT9/4DhodHKA1Q=="
-          # Facebook
-          "4gPpjkxgZzXPVtuEoAL9Ig=="
-          # Wikipedia
-          "eV8/WsSLxHadrTL1gAxhug=="
-          # Reddit
-          "gLv0ja2RYVgxKdp0I5qwvA=="
-          # Amazon
-          "K00ILysCaEq8+bEqV/3nuw=="
-          # Twitter
-          "T9nJot5PurhJSy8n038xGA=="
-        ]);
+        "browser.newtabpage.blocked" = builtins.listToAttrs (
+          map
+            (name: {
+              inherit name;
+              value = 1;
+            })
+            [
+              # Youtube
+              "26UbzFJ7qT9/4DhodHKA1Q=="
+              # Facebook
+              "4gPpjkxgZzXPVtuEoAL9Ig=="
+              # Wikipedia
+              "eV8/WsSLxHadrTL1gAxhug=="
+              # Reddit
+              "gLv0ja2RYVgxKdp0I5qwvA=="
+              # Amazon
+              "K00ILysCaEq8+bEqV/3nuw=="
+              # Twitter
+              "T9nJot5PurhJSy8n038xGA=="
+            ]
+        );
 
         # Disable some telemetry
         "app.shield.optoutstudies.enabled" = false;
@@ -108,16 +115,40 @@
         # Layout
         "browser.uiCustomization.state" = builtins.toJSON {
           placements = {
-            unified-extensions-area = [];
-            widget-overflow-fixed-list = [];
-            nav-bar = ["back-button" "forward-button" "vertical-spacer" "stop-reload-button" "urlbar-container" "downloads-button" "ublock0_raymondhill_net-browser-action" "_testpilot-containers-browser-action" "reset-pbm-toolbar-button" "unified-extensions-button"];
-            toolbar-menubar = ["menubar-items"];
-            TabsToolbar = [];
-            vertical-tabs = ["tabbrowser-tabs"];
-            PersonalToolbar = ["personal-bookmarks"];
+            unified-extensions-area = [ ];
+            widget-overflow-fixed-list = [ ];
+            nav-bar = [
+              "back-button"
+              "forward-button"
+              "vertical-spacer"
+              "stop-reload-button"
+              "urlbar-container"
+              "downloads-button"
+              "ublock0_raymondhill_net-browser-action"
+              "_testpilot-containers-browser-action"
+              "reset-pbm-toolbar-button"
+              "unified-extensions-button"
+            ];
+            toolbar-menubar = [ "menubar-items" ];
+            TabsToolbar = [ ];
+            vertical-tabs = [ "tabbrowser-tabs" ];
+            PersonalToolbar = [ "personal-bookmarks" ];
           };
-          seen = ["save-to-pocket-button" "developer-button" "ublock0_raymondhill_net-browser-action" "_testpilot-containers-browser-action" "screenshot-button"];
-          dirtyAreaCache = ["nav-bar" "PersonalToolbar" "toolbar-menubar" "TabsToolbar" "widget-overflow-fixed-list" "vertical-tabs"];
+          seen = [
+            "save-to-pocket-button"
+            "developer-button"
+            "ublock0_raymondhill_net-browser-action"
+            "_testpilot-containers-browser-action"
+            "screenshot-button"
+          ];
+          dirtyAreaCache = [
+            "nav-bar"
+            "PersonalToolbar"
+            "toolbar-menubar"
+            "TabsToolbar"
+            "widget-overflow-fixed-list"
+            "vertical-tabs"
+          ];
           currentVersion = 23;
           newElementCount = 10;
         };
