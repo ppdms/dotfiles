@@ -212,7 +212,7 @@
               # Darwin rebuild aliases (note: 'switch' is a reserved keyword in Fish)
               rebuild = "env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | xargs -I {} sudo darwin-rebuild switch --flake $HOME/.config/nix/public --option access-tokens 'github.com={}'";
               rebuild-update = "cd $HOME/.config/nix/public; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops -d --extract '[\"github_token\"]' $HOME/.config/nix/private/secrets/secrets.yaml | tr -d '\\n' | read -l TOKEN; and nix flake update --option access-tokens \"github.com=$TOKEN\"; and sudo darwin-rebuild switch --flake . --option access-tokens \"github.com=$TOKEN\"";
-              secrets = "cd $HOME/.config/nix/private/secrets; and env SOPS_AGE_KEY_FILE=$HOME/.config/nix/private/age/keys.txt sops secrets.yaml";
+              secrets = "bash $HOME/.config/nix/public/scripts/secrets-edit-backup.sh";
 
               # Utility aliases
               s = "kitten ssh";
@@ -352,7 +352,7 @@
               # Darwin rebuild aliases
               rebuild = ''SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | xargs -I {} sudo darwin-rebuild switch --flake ~/.config/nix/public --option access-tokens "github.com={}"'';
               rebuild-update = ''cd ~/.config/nix/public && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops -d --extract '["github_token"]' ~/.config/nix/private/secrets/secrets.yaml | tr -d '\n' | (read -r TOKEN; nix flake update --option access-tokens "github.com=$TOKEN" && sudo darwin-rebuild switch --flake . --option access-tokens "github.com=$TOKEN")'';
-              secrets = "cd ~/.config/nix/private/secrets && SOPS_AGE_KEY_FILE=~/.config/nix/private/age/keys.txt sops secrets.yaml";
+              secrets = "bash ~/.config/nix/public/scripts/secrets-edit-backup.sh";
 
               # Utility aliases
               s = "kitten ssh";

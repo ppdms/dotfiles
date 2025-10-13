@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Setup Backup Key System
-# This script creates a passphrase-protected backup age key for SOPS secrets
+# This script creates a backup age key for SOPS secrets
 # 
 # Usage: ./setup-backup-key.sh
 
@@ -41,18 +41,17 @@ fi
 
 mkdir -p "$AGE_DIR"
 
-BACKUP_KEY_ENCRYPTED="$AGE_DIR/backup-keys.txt.age"
-BACKUP_KEY_TEMP="$AGE_DIR/backup-keys.txt.tmp"
+BACKUP_KEY="$AGE_DIR/backup-key.txt"
 SE_KEY="$AGE_DIR/keys.txt"
 
-echo -e "${YELLOW}This will create a passphrase-protected backup age key.${NC}"
+echo -e "${YELLOW}This will create a backup age key.${NC}"
 echo -e "${YELLOW}This key can be used to decrypt secrets on any system.${NC}"
 echo
-echo -e "Location: ${GREEN}$BACKUP_KEY_ENCRYPTED${NC}"
+echo -e "Location: ${GREEN}$BACKUP_KEY${NC}"
 echo
 
 # Check if backup key already exists
-if [ -f "$BACKUP_KEY_ENCRYPTED" ]; then
+if [ -f "$BACKUP_KEY" ]; then
     echo -e "${YELLOW}Backup key already exists!${NC}"
     read -p "Do you want to recreate it? (y/N): " -n 1 -r
     echo
@@ -60,32 +59,24 @@ if [ -f "$BACKUP_KEY_ENCRYPTED" ]; then
         echo "Aborted."
         exit 0
     fi
+    # Remove old key
+    rm -f "$BACKUP_KEY"
 fi
 
 # Generate the backup key
 echo -e "${BLUE}Generating new age key...${NC}"
-age-keygen -o "$BACKUP_KEY_TEMP" 2>&1
+age-keygen -o "$BACKUP_KEY" 2>&1
 
 # Extract the public key
-BACKUP_PUBLIC_KEY=$(grep "public key:" "$BACKUP_KEY_TEMP" | awk '{print $NF}')
+BACKUP_PUBLIC_KEY=$(age-keygen -y "$BACKUP_KEY")
 echo -e "${GREEN}✓ Generated backup key${NC}"
 echo -e "  Public key: ${BLUE}$BACKUP_PUBLIC_KEY${NC}"
 echo
 
-# Encrypt with passphrase
-echo -e "${BLUE}Encrypting backup key with passphrase...${NC}"
-echo -e "${YELLOW}Choose a strong passphrase (you'll need this to restore secrets)${NC}"
-age -p -o "$BACKUP_KEY_ENCRYPTED" "$BACKUP_KEY_TEMP"
-
-# Clean up temp file
-shred -u "$BACKUP_KEY_TEMP" 2>/dev/null || rm -P "$BACKUP_KEY_TEMP" 2>/dev/null || rm -f "$BACKUP_KEY_TEMP"
-
-echo -e "${GREEN}✓ Backup key encrypted and saved${NC}"
-echo
-
 # Get Secure Enclave public key
 if [ -f "$SE_KEY" ]; then
-    SE_PUBLIC_KEY=$(grep "public key:" "$SE_KEY" | awk '{print $NF}')
+    # Secure Enclave keys have public key in comments, not extractable via age-keygen -y
+    SE_PUBLIC_KEY=$(grep "^# public key:" "$SE_KEY" | awk '{print $NF}')
     echo -e "${BLUE}Secure Enclave key detected:${NC}"
     echo -e "  Public key: ${BLUE}$SE_PUBLIC_KEY${NC}"
     echo
@@ -112,8 +103,21 @@ EOF
 echo -e "${GREEN}✓ Updated $SOPS_CONFIG${NC}"
 echo
 
+# Now add the backup key to secrets.yaml
+echo -e "${BLUE}Adding backup key to secrets.yaml...${NC}"
+echo -e "${YELLOW}You need to manually add the backup key to secrets.yaml${NC}"
+echo
+echo -e "Run: ${GREEN}sops $SECRETS_DIR/secrets.yaml${NC}"
+echo
+echo "Then add this entry:"
+echo -e "${BLUE}backup_age_key: |${NC}"
+cat "$BACKUP_KEY" | sed 's/^/  /'
+echo
+
 # Re-key existing secrets
 if [ -f "$SECRETS_DIR/secrets.yaml" ]; then
+    read -p "Press Enter after you've added the key to secrets.yaml to rekey..."
+    
     echo -e "${BLUE}Re-keying existing secrets with both keys...${NC}"
     cd "$SECRETS_DIR"
     
@@ -131,14 +135,19 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Setup Complete!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
 echo
+echo -e "${BLUE}IMPORTANT: Store backup key securely!${NC}"
+echo "1. Copy $BACKUP_KEY to a secure location:"
+echo "   - Password manager as a secure note"
+echo "   - Encrypted USB drive"
+echo "   - Secure cloud storage"
+echo
 echo -e "${BLUE}Next steps:${NC}"
-echo "1. Test decryption with backup key: ./export-secrets.sh"
-echo "2. Store the passphrase securely (password manager)"
-echo "3. Optionally backup: $BACKUP_KEY_ENCRYPTED"
+echo "1. Use: ${GREEN}bash $SCRIPT_DIR/secrets-edit-backup.sh${NC} to edit secrets"
+echo "2. Backups will be saved to: ${GREEN}$SECRETS_DIR/backups/${NC}"
 echo
 echo -e "${YELLOW}Security notes:${NC}"
-echo "• The backup key is encrypted with your passphrase"
-echo "• Anyone with the passphrase can decrypt your secrets"
-echo "• Store the passphrase in a secure password manager"
-echo "• Consider storing encrypted backup key in cloud storage"
+echo "• Keep $BACKUP_KEY in a secure location"
+echo "• Anyone with this key can decrypt your secrets"
+echo "• The key is also stored encrypted inside secrets.yaml"
+echo "• Backup archives can be decrypted with the backup key"
 echo
