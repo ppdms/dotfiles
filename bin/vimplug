@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+if hash nvim 2>/dev/null; then
+  cmd=nvim
+elif hash vim 2>/dev/null; then
+  cmd=vim
+else
+  exit 1
+fi
+
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+plug_vim_path="$XDG_CONFIG_HOME/nvim/autoload/plug.vim"
+if [[ ! -f "$plug_vim_path" ]]; then
+  curl 'https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim' \
+    --fail \
+    --location \
+    --output "$plug_vim_path" \
+    --create-dirs
+fi
+
+"$cmd" -e +PlugInstall +PlugUpgrade +PlugUpdate +PlugClean! +qall

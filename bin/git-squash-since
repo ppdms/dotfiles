@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# --- Git Squash Since Script ---
+#
+# This script squashes all commits on the current branch
+# since a specified base commit into a single new commit.
+
+# Exit immediately if a command fails
+set -e
+
+# 1. --- VALIDATION ---
+if [ -z "$1" ]; then
+  echo "Error: No base commit hash provided."
+  echo "Usage: ./git-squash-since.sh <base_commit_hash>"
+  exit 1
+fi
+
+BASE_COMMIT=$1
+NEW_COMMIT_MESSAGE="feat: Consolidate development since ${BASE_COMMIT:0:7}"
+
+# Check if the provided commit hash exists
+if ! git cat-file -e "$BASE_COMMIT^{commit}" 2>/dev/null; then
+  echo "Error: Commit '$BASE_COMMIT' does not exist."
+  exit 1
+fi
+
+# Check for uncommitted changes
+if ! git diff-index --quiet HEAD --; then
+    echo "Error: You have uncommitted changes. Please commit or stash them first."
+    exit 1
+fi
+
+echo "All commits since $BASE_COMMIT will be squashed into one."
+echo "The new commit message will be: \"$NEW_COMMIT_MESSAGE\""
+echo ""
+
+# 2. --- EXECUTION ---
+# Reset the current branch's HEAD to the base commit.
+# The '--soft' flag keeps all file changes from the undone commits staged.
+echo "Running: git reset --soft $BASE_COMMIT"
+git reset --soft "$BASE_COMMIT"
+
+# Create a single new commit containing all the staged changes.
+echo "Running: git commit"
+git commit -m "$NEW_COMMIT_MESSAGE"
+
+
+# 3. --- COMPLETION ---
+echo ""
+echo "✅ Squash successful!"
+echo ""
+echo "You can now edit the new commit message by running:"
+echo "   git commit --amend"
+echo ""
+echo "When ready, push the changes to the remote. You will need to force-push:"
+echo "   git push --force-with-lease"

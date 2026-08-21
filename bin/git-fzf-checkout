@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+branches="$(git branch)"
+branch="$(echo "$branches" | fzf +m --height=1%)"
+git checkout "$(echo "$branch" | awk '{print $1}' | sed "s/.* //")"

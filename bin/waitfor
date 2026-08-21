@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+pid="$1"
+
+if hash caffeinate 2>/dev/null; then
+  caffeinate -w "$pid"
+elif hash systemd-inhibit 2>/dev/null; then
+  systemd-inhibit \
+    --who=waitfor \
+    --why="Awaiting PID $pid" \
+    tail --pid="$pid" -f /dev/null
+else
+  tail --pid="$pid" -f /dev/null
+fi

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+echo -n "$(date '+%Y-%m-%d')"

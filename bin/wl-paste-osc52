@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+marker="$HOME/.cache/clipssh/clipboard-path"
+
+case " $* " in
+  *" --list-types "*)
+    if [[ -s "$marker" ]]; then
+      printf 'image/png\ntext/plain\ntext/plain;charset=utf-8\n'
+    else
+      printf 'text/plain\ntext/plain;charset=utf-8\n'
+    fi
+    exit 0
+    ;;
+  *" --type image/png "*)
+    if [[ -s "$marker" ]]; then
+      cat "$(cat "$marker")"
+      exit 0
+    fi
+    exit 1
+    ;;
+  *" --type text/plain "*|*" --type text/plain;charset=utf-8 "*)
+    ;;
+  *)
+    printf 'Unsupported clipboard request\n' >&2
+    exit 1
+    ;;
+esac
+
+if [[ -r /dev/tty && -w /dev/tty ]]; then
+  tty_state=$(stty -g < /dev/tty)
+  restore_tty() { stty "$tty_state" < /dev/tty; }
+  trap restore_tty EXIT
+  stty -echo -icanon min 0 time 0 < /dev/tty
+  printf '\033]52;c;?\a' > /dev/tty
+
+  response=''
+  while IFS= read -r -N 1 -t 2 byte < /dev/tty; do
+    response+="$byte"
+    [[ "$byte" == $'\a' || "$response" == *$'\e\\' ]] && break
+  done
+
+  prefix=$'\e]52;c;'
+  if [[ "$response" == "$prefix"* ]]; then
+    payload=${response#"$prefix"}
+    payload=${payload%$'\a'}
+    payload=${payload%$'\e\\'}
+    if printf '%s' "$payload" | base64 --decode; then
+      exit 0
+    fi
+  fi
+fi
+
+if [[ -s "$marker" ]]; then
+  cat "$marker"
+  exit 0
+fi
+
+printf 'No clipboard response from terminal\n' >&2
+exit 1

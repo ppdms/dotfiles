@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Upload a macOS clipboard image to an SSH host and copy its remote path.
+# This is intentionally a local helper; it does not replace ssh.
+
+set -euo pipefail
+
+watch_mode=false
+if [[ $# -eq 2 && "$1" == "--watch" ]]; then
+  watch_mode=true
+  shift
+fi
+
+if [[ $# -ne 1 ]]; then
+  printf 'Usage: clipssh [--watch] user@host|host\n' >&2
+  exit 2
+fi
+
+host=$1
+if [[ "$host" == -* ]]; then
+  printf 'Invalid SSH target: %s\n' "$host" >&2
+  exit 2
+fi
+
+if [[ "${OSTYPE:-}" != darwin* ]]; then
+  printf 'clipssh requires macOS\n' >&2
+  exit 1
+fi
+
+if ! command -v pngpaste >/dev/null 2>&1; then
+  printf 'pngpaste not found; install it with Homebrew\n' >&2
+  exit 1
+fi
+
+if [[ "$watch_mode" != true ]] && ! command -v pbcopy >/dev/null 2>&1; then
+  printf 'pbcopy not found\n' >&2
+  exit 1
+fi
+
+remote_dir=${CLIPSSH_REMOTE_DIR:-/tmp}
+if [[ "$remote_dir" != /* || "$remote_dir" == *[!A-Za-z0-9_./-]* ]]; then
+  printf 'CLIPSSH_REMOTE_DIR must be an absolute path containing only letters, numbers, _, ., /, and -\n' >&2
+  exit 2
+fi
+
+shim_file=${CLIPSSH_WL_PASTE_SHIM:-"${BASH_SOURCE[0]%/*}/wl-paste-osc52"}
+shim_b64=''
+if [[ -r "$shim_file" ]]; then
+  shim_b64=$(base64 < "$shim_file" | tr -d '\r\n')
+fi
+shim_b64_q=$(printf '%q' "$shim_b64")
+
+upload_file() {
+  local image_file=$1
+  local copy_path=$2
+  local remote_path="$remote_dir/clipboard-$(date +%s)-$$-$RANDOM.png"
+  local remote_path_q
+  remote_path_q=$(printf '%q' "$remote_path")
+
+  if ! ssh -o ClearAllForwardings=yes "$host" "umask 077 && mkdir -p \"\$HOME/.cache/clipssh\" \"\$HOME/.local/bin\" && printf '%s' $remote_path_q > \"\$HOME/.cache/clipssh/clipboard-path\" && if [[ -n $shim_b64_q ]]; then printf '%s' $shim_b64_q | base64 --decode > \"\$HOME/.local/bin/wl-paste\" && chmod 700 \"\$HOME/.local/bin/wl-paste\"; fi && cat > $remote_path_q" < "$image_file"; then
+    return 1
+  fi
+  if [[ "$copy_path" == true ]]; then
+    printf '%s' "$remote_path" | pbcopy
+  fi
+  printf 'Uploaded: %s\n' "$remote_path"
+}
+
+preserve_or_clear_marker() {
+  local clipboard_text clipboard_text_q
+  clipboard_text=$(pbpaste 2>/dev/null || true)
+  if [[ "$clipboard_text" == "$remote_dir"/clipboard-*.png ]]; then
+    clipboard_text_q=$(printf '%q' "$clipboard_text")
+    if ssh -o ClearAllForwardings=yes "$host" \
+      "marker=\"\$HOME/.cache/clipssh/clipboard-path\"; [[ -s \"\$marker\" ]] || exit 1; path=\$(cat \"\$marker\"); [[ \"\$path\" == $clipboard_text_q && -f \"\$path\" ]]" \
+      >/dev/null 2>&1; then
+      printf 'Reusing uploaded image: %s\n' "$clipboard_text"
+      return 0
+    fi
+  fi
+  # Do not leave a previous image discoverable after the local clipboard
+  # changes to text or becomes empty. The SSH hook intentionally suppresses
+  # this command's failure for ordinary text-only SSH sessions.
+  ssh -o ClearAllForwardings=yes "$host" \
+    'rm -f "$HOME/.cache/clipssh/clipboard-path"' >/dev/null 2>&1 || true
+  printf 'Clipboard is empty or does not contain an image\n' >&2
+  return 1
+}
+
+watch_clipboard() {
+  local last_hash=''
+  local image_file image_hash
+  while :; do
+    image_file=$(mktemp -t clipssh-watch.XXXXXXXX).png
+    if pngpaste "$image_file" >/dev/null 2>&1 && [[ -s "$image_file" ]]; then
+      image_hash=$(shasum -a 256 "$image_file" | cut -d ' ' -f 1)
+      if [[ "$image_hash" != "$last_hash" ]]; then
+        if upload_file "$image_file" false >/dev/null 2>&1; then
+          last_hash=$image_hash
+        fi
+      fi
+    fi
+    rm -f "$image_file"
+    sleep "${CLIPSSH_WATCH_INTERVAL:-1}"
+  done
+}
+
+if [[ "$watch_mode" == true ]]; then
+  watch_clipboard
+  exit 0
+fi
+
+temp_file=$(mktemp -t clipssh.XXXXXXXX).png
+cleanup() { rm -f "$temp_file"; }
+trap cleanup EXIT
+
+if pngpaste "$temp_file" >/dev/null 2>&1 && [[ -s "$temp_file" ]]; then
+  upload_file "$temp_file" true
+else
+  preserve_or_clear_marker
+fi

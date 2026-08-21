@@ -1,0 +1,18 @@
+#!/usr/bin/env fish
+
+set REAL_SSH /etc/profiles/per-user/$USER/bin/ssh
+
+# Let VS Code version/probe calls pass through quickly
+if test "$argv[1]" = "-V" -o "$argv[1]" = "-h"
+  exec $REAL_SSH $argv
+end
+
+# Load the profile's default SOPS-backed key before SSH auth.
+sops-ensure-key
+
+# Use SOPS agent socket if provided
+if test -n "$SOPS_SSH_AUTH_SOCK"
+  set -x SSH_AUTH_SOCK "$SOPS_SSH_AUTH_SOCK"
+end
+
+exec $REAL_SSH $argv

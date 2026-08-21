@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+require 'securerandom'
+print SecureRandom.uuid

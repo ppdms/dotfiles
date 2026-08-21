@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+# In an SSH session, ask the local terminal for its clipboard via OSC 52.
+if [[ -n "${SSH_TTY:-}" && -r /dev/tty && -w /dev/tty ]]; then
+  tty_state=$(stty -g < /dev/tty)
+  restore_tty() {
+    stty "$tty_state" < /dev/tty
+  }
+  trap restore_tty EXIT
+  stty -echo -icanon min 0 time 0 < /dev/tty
+  printf '\033]52;c;?\a' > /dev/tty
+
+  response=''
+  while IFS= read -r -N 1 -t 2 byte < /dev/tty; do
+    response+="$byte"
+    [[ "$byte" == $'\a' || "$response" == *$'\e\\' ]] && break
+  done
+
+  prefix=$'\e]52;c;'
+  if [[ "$response" != "$prefix"* ]]; then
+    echo "No clipboard response from terminal" >&2
+    exit 1
+  fi
+  payload=${response#"$prefix"}
+  payload=${payload%$'\a'}
+  payload=${payload%$'\e\\'}
+  printf '%s' "$payload" | base64 --decode
+  exit 0
+fi
+
+if hash pbpaste 2>/dev/null; then
+  exec pbpaste
+elif hash xclip 2>/dev/null; then
+  exec xclip -selection clipboard -o
+elif [[ -e /tmp/clipboard ]]; then
+  exec cat /tmp/clipboard
+else
+  echo ''
+fi

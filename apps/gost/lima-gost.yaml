@@ -1,0 +1,93 @@
+# ===================================================================== #
+# Lima VM configuration for GOST v3 Client
+# Runs GOST v3 client to connect to Cloudflare Access protected proxy
+# Uses PHT (Plain HTTP Tunnel) protocol with custom header support
+# ===================================================================== #
+
+# VM type: "vz" for macOS 13+
+vmType: "vz"
+
+# Architecture
+arch: null
+
+# OpenStack-compatible disk image
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/noble/release-20251031/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+    digest: "sha256:499fa6088985c641e38d69cfd98105a3e45dc082f07ad5779db49ccb958bc3a9"
+  # Fallback to the latest release image
+  - location: "https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+# Resource allocation (more disk for building GOST v3)
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+# Mount host directories
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+# SSH configuration
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+  forwardAgent: false
+
+# Port forwarding: SOCKS5 proxy on 1080
+portForwards:
+  - guestSocket: "/tmp/gost.sock"
+    hostSocket: "/tmp/gost.sock"
+  - guestPort: 1080
+    hostPort: 1080
+    hostIP: 127.0.0.1
+    proto: tcp
+  - guestPort: 1081
+    hostPort: 1081
+    hostIP: 127.0.0.1
+    proto: tcp
+  - guestPort: 8080
+    hostPort: 8080
+    hostIP: 127.0.0.1
+    proto: tcp
+  - guestPort: 80
+    hostPort: 80
+    hostIP: 127.0.0.1
+    proto: tcp
+  - guestPort: 443
+    hostPort: 443
+    hostIP: 127.0.0.1
+    proto: tcp
+  - guestPort: 2222
+    hostPort: 2222
+    hostIP: 127.0.0.1
+    proto: tcp
+
+# CA Certificates
+caCerts:
+  removeDefaults: null
+  files: []
+  certs: []
+
+# Don't upgrade packages on boot for faster startup
+upgradePackages: false
+
+# No containerd needed for this VM
+containerd:
+  system: false
+
+# Install Go for building GOST v3
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Install build dependencies
+      apt-get update
+      apt-get install -y git wget build-essential curl ca-certificates
+
+      echo "✓ Build dependencies installed"

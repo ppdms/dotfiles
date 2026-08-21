@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+if hash deno 2>/dev/null; then
+  exec deno repl
+elif hash node 2>/dev/null; then
+  exec node
+elif hash osascript 2>/dev/null; then
+  exec osascript -il JavaScript
+else
+  echo 'no js runtime found' 1>&2
+  exit 1
+fi

@@ -1,0 +1,12 @@
+.DS_Store
+flake.lock
+bin/python3
+/age/
+/backups/
+/config/
+/profile.json
+/secrets/
+/syncthing/
+/vscode_ssh_config
+/.sops.yaml
+*.age

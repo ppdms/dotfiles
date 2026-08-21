@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+# In an SSH session, send the clipboard contents to the local terminal via
+# OSC 52. Ghostty accepts this sequence and writes it to the macOS clipboard.
+if [[ -n "${SSH_TTY:-}" && -w /dev/tty ]]; then
+  if [[ $# -gt 0 ]]; then
+    payload=$(base64 < "$1" | tr -d '\r\n')
+  else
+    payload=$(base64 | tr -d '\r\n')
+  fi
+  printf '\033]52;c;%s\a' "$payload" > /dev/tty
+  exit 0
+fi
+if hash pbcopy 2>/dev/null; then
+  exec pbcopy
+elif hash xclip 2>/dev/null; then
+  exec xclip -selection clipboard
+elif hash putclip 2>/dev/null; then
+  exec putclip
+else
+  rm -f /tmp/clipboard 2> /dev/null
+  if [ $# -eq 0 ]; then
+    cat > /tmp/clipboard
+  else
+    cat "$1" > /tmp/clipboard
+  fi
+fi

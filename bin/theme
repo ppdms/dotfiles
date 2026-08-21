@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+scripts_dir="$XDG_CONFIG_HOME/evanhahn-theme-scripts.d"
+
+if [ -d "$scripts_dir" ]; then
+  for script in "$scripts_dir"/*; do
+    echo "$script" "$@"
+    "$script" "$@"
+  done
+fi

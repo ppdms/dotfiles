@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+import sys
+
+for line in sys.stdin:
+    trimmed = line.strip()
+    if trimmed == "":
+        print(">")
+    elif trimmed.startswith(">"):
+        print(trimmed)
+    else:
+        print("> " + trimmed)

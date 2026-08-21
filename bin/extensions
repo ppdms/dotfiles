@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+import os
+import sys
+
+extensions_seen = set()
+
+for line in sys.stdin:
+    _, ext = os.path.splitext(line.strip())
+    if len(ext) > 1 and ext not in extensions_seen:
+        print(ext)
+        extensions_seen.add(ext)

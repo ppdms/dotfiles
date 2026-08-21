@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+require 'json'
+
+MINUTES = 20
+
+def notify(*args)
+  pid = spawn('notify', *args)
+  return Process.wait2(pid)[1].exited?
+end
+
+notify('nag', "you'll get a reminder every #{MINUTES} minutes")
+
+trap('SIGINT') { exit }
+
+while true
+  pid = fork do
+    sleep MINUTES * 60
+    notify('nag', "it's been #{MINUTES} minutes")
+  end
+  Process.wait(pid)
+end

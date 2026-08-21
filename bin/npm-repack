@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+npm pack "$1"
+
+du -b "$1"*.tgz
+
+gunzip "$1"*.tgz
+
+zopfli --gzip -i1000 "$1"*.tar
+
+du -b "$1"*.tar.gz

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# originally copied from:
+# https://codeberg.org/EvanHahn/dotfiles/src/commit/843b9ee13d949d346a4a73ccee2a99351aed285b/home/bin/bin
+set -e
+set -u
+set -o pipefail
+
+ffmpeg -i "$1" -c:v libx264 -tag:v avc1 -movflags faststart -crf "${3:-30}" -preset superfast "$2"
