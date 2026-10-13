@@ -28,11 +28,8 @@ profile_git_source_url() {
 }
 
 profile_exec() {
-    local profile_bin source_url
-    profile_bin="$(type -P profile || true)"
-    if [[ -n "$profile_bin" ]]; then
-        exec "$profile_bin" "$@"
-    fi
+    local source_url
+    # Keep the helper and schema in sync with the checkout being rebuilt.
     source_url="$(profile_git_source_url "$profile_bootstrap_dir/../..")" || return
     exec nix run --no-write-lock-file "$source_url#profile" -- "$@"
 }

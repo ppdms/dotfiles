@@ -13,6 +13,10 @@ A rebuild decrypts and validates the settings, builds the machine and
 activates the result. On Linux the build runs without privileges before
 the password-confirmed switch.
 
+Repository wrappers run the profile helper and schema packaged from their
+own Git checkout, not an already-installed `profile` on `PATH`. This keeps
+rendered inputs compatible with the configuration being rebuilt.
+
 ```bash
 bash tools/profile/rebuild.sh --no-switch         # prepare inputs; no build or activation
 bash tools/profile/rebuild.sh --update            # fetch newer public dependencies first

@@ -32,6 +32,12 @@ units. Service modules are in `services/`; system configuration is in
   by dedicated units before services start. Failed preparation leaves
   services stopped rather than half-configured.
 
+## Locale
+
+The server uses `en_US.UTF-8` for all locale categories, including dates,
+numbers and currency. After activating a locale change, start a fresh
+login session; existing processes retain their inherited locale variables.
+
 ## Locations
 
 | Subject | Place |
