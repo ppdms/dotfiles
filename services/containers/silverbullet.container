@@ -1,0 +1,47 @@
+[Unit]
+Description=SilverBullet notes on the Zettelkasten vault
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=silverbullet
+Image=@image:silverbullet@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-silverbullet@:3000
+# The vault is the space: host-owned, user-editable, git-tracked.
+Volume=@notes-path@:/data:rw
+# KV index lives outside the space so the vault stays clean for git.
+Volume=@state-root@/silverbullet/kv:/var/lib/silverbullet:rw
+Environment=SB_FOLDER=/data
+Environment=SB_KV_DB=/var/lib/silverbullet/silverbullet.db
+# Server-side worker kill (SB_DISABLE_SERVICE_WORKER): the space-lua flag
+# arrives after boot (sync race) so the client still registers. The env
+# carries it in boot config from the first byte. Sync goes direct-only.
+Environment=SB_DISABLE_SERVICE_WORKER=1
+# No SB_USER: LAN/direct ingress uses Authelia; the tunnel uses Cloudflare Access.
+# Only the trusted host can dial the backend's loopback publish.
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=120s
+
+[Service]
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

@@ -1,0 +1,47 @@
+[Unit]
+Description=Immich background jobs
+PartOf=homelab.target
+Requires=apps-net-network.service immich-database.service immich-redis.service immich-machine-learning.service
+After=apps-net-network.service immich-database.service immich-redis.service immich-machine-learning.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=immich_microservices
+# Server and worker images share the immich-server pin and stay in lockstep.
+Image=@image:immich-server@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=apps-net.network
+NetworkAlias=immich_microservices
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
+Volume=@state-root@/immich/library:/data:rw
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=@immich-path@:/raid:ro
+Volume=@ca-certificate@:/usr/local/share/ca-certificates/homelab.pem:ro
+Environment=NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/homelab.pem
+Environment=DB_HOSTNAME=immich-postgres
+Environment=DB_PORT=5432
+Environment=REDIS_HOSTNAME=immich-valkey
+Environment=REDIS_PORT=6379
+Environment=IMMICH_WORKERS_EXCLUDE=api
+Environment=CPU_CORES=1
+EnvironmentFile=%t/homelab-secrets/immich/immich.env
+Volume=%t/homelab-secrets/immich:/run/secrets:ro
+
+[Service]
+ExecStartPre=@secret-helper@ prepare immich
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=900s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

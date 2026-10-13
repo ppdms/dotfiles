@@ -1,0 +1,64 @@
+[Unit]
+Description=Termix SSH console
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=termix
+Image=@image:termix@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-termix@:8080
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
+Volume=@state-root@/termix/data:/app/data:rw
+Volume=%t/homelab-termix/ssl-ca-bundle.pem:/usr/local/share/ca-certificates/homelab.pem:ro
+Volume=%t/homelab-secrets/termix:/run/secrets:ro
+# Authelia is the only login; the client secret arrives via EnvironmentFile
+# from the credential broker. Endpoints use the canonical OIDC issuer —
+# Authelia binds each code to the portal it was issued on, so the browser
+# authorization and the container token exchange use the same portal.
+Environment=OIDC_CLIENT_ID=termix
+Environment=OIDC_ISSUER_URL=https://auth.@public-domain@
+Environment=OIDC_AUTHORIZATION_URL=https://auth.@public-domain@/api/oidc/authorization
+Environment=OIDC_TOKEN_URL=https://auth.@public-domain@/api/oidc/token
+Environment=OIDC_USERINFO_URL=https://auth.@public-domain@/api/oidc/userinfo
+# Env beats any provider saved in the Termix admin UI; keep git authoritative.
+Environment=OIDC_ENV_OVERRIDE=true
+Environment=NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/homelab.pem
+# The login page redirects straight to Authelia instead of showing a form.
+Environment=OIDC_SILENT_LOGIN_DEFAULT=true
+Environment=ALLOW_PASSWORD_LOGIN=false
+# Link (or create) the Termix account for the Authelia identity on first
+# login, and mirror Authelia's groups so the owner stays Termix admin.
+Environment=OIDC_ALLOW_REGISTRATION=true
+Environment=OIDC_ADMIN_GROUP=admins
+Environment=OIDC_GROUP_CLAIM=groups
+Environment=ENABLE_TELEMETRY=false
+Environment=ENABLE_GUACAMOLE=false
+EnvironmentFile=%t/homelab-secrets/termix/termix.env
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=60s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare termix
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=819M
+MemoryMax=1G
+
+[Install]
+WantedBy=homelab.target

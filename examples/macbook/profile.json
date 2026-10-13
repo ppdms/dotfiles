@@ -1,0 +1,44 @@
+{
+  "profiles": {
+    "darwin": {
+      "system": {
+        "hostname": "example-laptop",
+        "username": "example",
+        "homeDirectory": "/Users/example",
+        "platform": "aarch64-darwin",
+        "role": "laptop",
+        "homeStateVersion": "25.05",
+        "systemStateVersion": 6,
+        "checkout": "/Users/example/dotfiles"
+      },
+      "user": {
+        "fullName": "Example O'User",
+        "email": "example@example.net",
+        "gitSigningKey": null,
+        "signCommits": false
+      },
+      "development": {
+        "nodeMajor": 22,
+        "pythonMinor": 13
+      },
+      "applications": {
+        "omp": {},
+        "codex": {
+          "sandboxMode": null
+        },
+        "claude": {
+          "coworkUserFilesPath": "/Users/example/Documents",
+          "accountId": "example-account",
+          "remoteToolsDeviceName": "example-laptop"
+        }
+      },
+      "ssh": {
+        "defaultKey": "example-key",
+        "keys": []
+      },
+      "network": {
+        "modes": {}
+      }
+    }
+  }
+}

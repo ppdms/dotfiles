@@ -1,0 +1,53 @@
+[Unit]
+Description=Homelab Authelia portal
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=authelia
+Image=@image:authelia@
+Pull=never
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-authelia@:9091
+ReadOnly=true
+Tmpfs=/tmp:rw,size=64m,mode=1777
+Volume=@authelia-config@:/config:ro
+Volume=@state-root@/authelia/data:/data:rw
+Volume=%t/homelab-secrets/authelia:/run/secrets:rw
+Volume=%t/homelab-secrets/authelia-oidc:/run/secrets/authelia-oidc:ro
+Volume=%t/homelab-authelia/healthcheck.env:/app/.healthcheck.env:rw
+Environment=TZ=UTC
+Environment=AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE=/run/secrets/jwt-secret
+Environment=AUTHELIA_SESSION_SECRET_FILE=/run/secrets/session-secret
+Environment=AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/run/secrets/storage-encryption-key
+Exec=--config /config/configuration.yml --config.experimental.filters=template
+NoNewPrivileges=true
+DropCapability=all
+Notify=healthy
+HealthCmd=wget --no-verbose --tries=1 --spider http://127.0.0.1:9091/api/health
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=30s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare authelia
+ExecStartPre=@secret-helper@ prepare authelia-oidc
+ExecStartPre=@state-helper@
+ExecStopPost=@secret-helper@ persist authelia
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=819M
+MemoryMax=1G
+
+[Install]
+WantedBy=homelab.target

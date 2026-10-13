@@ -1,0 +1,58 @@
+[Unit]
+Description=Kavita ebook library on the Books share
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=kavita
+Image=@image:kavita@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+# s6-overlay preinit rejects rootless /run (uid 0, unfixable without
+# privileges): bypass it like transmission does, launching Kavita's own
+# binary directly. Same keep-id mapping, no s6 supervision.
+Entrypoint=/bin/bash
+Exec=/usr/local/bin/kavita-nonroot-entrypoint
+Volume=@kavita-config@/nonroot-entrypoint.sh:/usr/local/bin/kavita-nonroot-entrypoint:ro
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-kavita@:5000
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
+# App DB + OIDC registration live here (UI-configured, no env vars exist).
+Volume=@state-root@/kavita/config:/config:rw
+# The Books library, read-only: Kavita scans but never writes into it.
+Volume=@books-path@:/books:ro
+Volume=%t/homelab-kavita/ssl-ca-bundle.pem:/config/ssl-ca-bundle.pem:ro
+Environment=PUID=1000
+Environment=PGID=1000
+Environment=TZ=@timezone@
+# .NET honors SSL_CERT_FILE (NODE_EXTRA_CA_CERTS is Node-only and inert
+# here): bundle the public roots + deployment root so Kavita can fetch
+# OIDC discovery from the public portal. Same pattern as jellyfin.
+Environment=SSL_CERT_FILE=/config/ssl-ca-bundle.pem
+NoNewPrivileges=true
+DropCapability=all
+HealthCmd=curl --fail --silent --show-error --max-time 5 --output /dev/null http://127.0.0.1:5000/
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=120s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare kavita
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

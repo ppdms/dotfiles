@@ -1,0 +1,5 @@
+[Unit]
+Description=Immich Redis data volume
+
+[Volume]
+VolumeName=immich-redis-data

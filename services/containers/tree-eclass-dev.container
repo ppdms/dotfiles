@@ -1,0 +1,46 @@
+[Unit]
+Description=Tree-eclass DEV API + browser UI (branched sqlite, disposable)
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=tree-eclass-dev
+# Floating dev slot, rebuilt by `tree-dev sync` from the working checkout:
+# podman build -t localhost/tree-eclass:dev .
+# Never WantedBy homelab.target: started/stopped only via tree-dev.
+# The dedicated dev account owns its image store and distinct local endpoint.
+Image=localhost/tree-eclass:dev
+User=10001:10001
+UserNS=keep-id:uid=10001,gid=10001
+Pull=never
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-tree-dev@:8001
+Environment=TREE_RUNTIME_CONFIG=/run/tree-eclass/application.json
+Environment=GOMEMLIMIT=192MiB
+Environment=MALLOC_ARENA_MAX=2
+Volume=@state-root@/tree-eclass-dev/jobs:/jobs:rw
+Volume=@state-root@/tree-eclass-dev/objects:/data/objects:rw
+Volume=@state-root@/tree-eclass-dev/jobs/application.json:/run/tree-eclass/application.json:ro
+Exec=container-serve
+HealthCmd=python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/health', timeout=20)"
+HealthInterval=120s
+HealthTimeout=30s
+HealthRetries=3
+HealthStartPeriod=120s
+StopTimeout=120
+
+[Service]
+ExecStartPre=@secret-helper@ prepare tree-eclass
+ExecStartPre=@state-helper@
+# container-serve exits non-zero on graceful stop (upstream contract).
+SuccessExitStatus=1
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=2048
+MemoryHigh=2G
+MemoryMax=3G

@@ -1,0 +1,48 @@
+[Unit]
+Description=Tree-eclass API + browser UI (Go serves frontend, no SSR)
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=tree-eclass
+# Floating stable slot: `tree-dev deploy` builds localhost/tree-eclass:<rev>
+# and retags :stable. Never edit this file for a release-only promotion.
+Image=localhost/tree-eclass:stable
+User=10001:10001
+UserNS=keep-id:uid=10001,gid=10001
+Pull=never
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-tree-eclass@:8001
+Environment=TREE_RUNTIME_CONFIG=/run/tree-eclass/application.json
+Environment=GOMEMLIMIT=192MiB
+Environment=MALLOC_ARENA_MAX=2
+Volume=@state-root@/tree-eclass/jobs:/jobs:rw
+Volume=@state-root@/tree-eclass/objects:/data/objects:rw
+Volume=@state-root@/tree-eclass/jobs/application.json:/run/tree-eclass/application.json:ro
+Exec=container-serve
+HealthCmd=python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/health', timeout=20)"
+HealthInterval=120s
+HealthTimeout=30s
+HealthRetries=3
+HealthStartPeriod=120s
+StopTimeout=120
+
+[Service]
+ExecStartPre=@secret-helper@ prepare tree-eclass
+ExecStartPre=@state-helper@
+# container-serve exits non-zero on graceful stop (upstream contract).
+SuccessExitStatus=1
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=2048
+MemoryHigh=2G
+MemoryMax=3G
+
+[Install]
+WantedBy=homelab.target

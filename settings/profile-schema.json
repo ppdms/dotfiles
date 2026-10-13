@@ -1,0 +1,1569 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dotfiles.invalid/profile-schema.json",
+  "title": "Narrow non-secret machine profiles",
+  "type": "object",
+  "properties": {
+    "profiles": {
+      "type": "object",
+      "properties": {
+        "darwin": {
+          "$ref": "#/$defs/darwin"
+        },
+        "nixos": {
+          "$ref": "#/$defs/nixos"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "profiles"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "darwin": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "type": "object",
+          "properties": {
+            "hostname": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"
+            },
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[a-z_][a-z0-9_-]*$"
+            },
+            "homeDirectory": {
+              "$ref": "#/$defs/absolutePath"
+            },
+            "platform": {
+              "type": "string",
+              "enum": [
+                "aarch64-darwin"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "laptop"
+              ]
+            },
+            "homeStateVersion": {
+              "$ref": "#/$defs/homeStateVersion"
+            },
+            "systemStateVersion": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "checkout": {
+              "$ref": "#/$defs/absolutePath"
+            }
+          },
+          "required": [
+            "hostname",
+            "username",
+            "homeDirectory",
+            "platform",
+            "role",
+            "homeStateVersion",
+            "systemStateVersion",
+            "checkout"
+          ],
+          "additionalProperties": false
+        },
+        "user": {
+          "type": "object",
+          "properties": {
+            "fullName": {
+              "$ref": "#/$defs/text"
+            },
+            "email": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[^ @\r\n]+@[^ @\r\n]+$"
+            },
+            "templateEmail": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[^ @\r\n]+@[^ @\r\n]+$",
+              "x-default-from": "email"
+            },
+            "gitSigningKey": {
+              "type": [
+                "null",
+                "string"
+              ],
+              "pattern": "^((/|~/|[.]/)[^\r\n]+|(ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/]+={0,3}( [^\r\n]*)?)$",
+              "maxLength": 8192,
+              "default": null
+            },
+            "signCommits": {
+              "type": "boolean",
+              "default": true
+            },
+            "authorizedKeys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/publicKey"
+              },
+              "maxItems": 256,
+              "default": []
+            }
+          },
+          "required": [
+            "fullName",
+            "email"
+          ],
+          "additionalProperties": false
+        },
+        "development": {
+          "type": "object",
+          "properties": {
+            "nodeMajor": {
+              "type": "integer",
+              "minimum": 18,
+              "maximum": 99
+            },
+            "pythonMinor": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 99
+            }
+          },
+          "required": [
+            "nodeMajor",
+            "pythonMinor"
+          ],
+          "additionalProperties": false
+        },
+        "applications": {
+          "type": "object",
+          "properties": {
+            "omp": {
+              "type": "object",
+              "properties": {
+                "symbolPreset": {
+                  "$ref": "#/$defs/name"
+                },
+                "theme": {
+                  "type": "object",
+                  "properties": {
+                    "dark": {
+                      "$ref": "#/$defs/name"
+                    },
+                    "light": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "setupVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "edit": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "apply_patch",
+                        "replace"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "composer": {
+                  "type": "object",
+                  "properties": {
+                    "shape": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "dev": {
+                  "type": "object",
+                  "properties": {
+                    "autoqaConsent": {
+                      "type": "string",
+                      "enum": [
+                        "granted",
+                        "denied"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "git": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "display": {
+                  "type": "object",
+                  "properties": {
+                    "showTokenUsage": {
+                      "type": "boolean"
+                    },
+                    "cacheMissMarker": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "statusLine": {
+                  "type": "object",
+                  "properties": {
+                    "preset": {
+                      "$ref": "#/$defs/name"
+                    },
+                    "separator": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "extendedContext": {
+                  "type": "boolean"
+                },
+                "modelRoles": {
+                  "type": "object",
+                  "propertyNames": {
+                    "$ref": "#/$defs/name"
+                  },
+                  "additionalProperties": {
+                    "$ref": "#/$defs/text"
+                  }
+                },
+                "retry": {
+                  "type": "object",
+                  "properties": {
+                    "fallbackChains": {
+                      "type": "object",
+                      "propertyNames": {
+                        "$ref": "#/$defs/name"
+                      },
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "maxItems": 256
+                      }
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "codex": {
+              "type": "object",
+              "properties": {
+                "sandboxMode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "read-only",
+                    "workspace-write",
+                    "danger-full-access",
+                    null
+                  ],
+                  "default": null
+                }
+              },
+              "required": [],
+              "additionalProperties": false,
+              "default": {}
+            },
+            "claude": {
+              "type": "object",
+              "properties": {
+                "coworkUserFilesPath": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "accountId": {
+                  "$ref": "#/$defs/name"
+                },
+                "remoteToolsDeviceName": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "coworkUserFilesPath",
+                "accountId",
+                "remoteToolsDeviceName"
+              ],
+              "additionalProperties": false
+            },
+            "zed": {
+              "type": "object",
+              "properties": {
+                "sshConnections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": {
+                        "$ref": "#/$defs/domain"
+                      },
+                      "username": {
+                        "$ref": "#/$defs/text"
+                      },
+                      "args": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "maxItems": 256,
+                        "default": []
+                      },
+                      "projects": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "paths": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/$defs/absolutePath"
+                              },
+                              "minItems": 1,
+                              "maxItems": 256
+                            }
+                          },
+                          "required": [
+                            "paths"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 256,
+                        "default": []
+                      }
+                    },
+                    "required": [
+                      "host",
+                      "username"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 256,
+                  "default": []
+                }
+              },
+              "required": [],
+              "additionalProperties": false,
+              "default": {}
+            }
+          },
+          "required": [
+            "claude"
+          ],
+          "additionalProperties": false
+        },
+        "ssh": {
+          "type": "object",
+          "properties": {
+            "defaultKey": {
+              "$ref": "#/$defs/name"
+            },
+            "defaultIdentityAgent": {
+              "type": "string",
+              "pattern": "^[^\r\n]*$",
+              "maxLength": 1024,
+              "default": ""
+            },
+            "clipboardHosts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "maxItems": 256,
+              "default": []
+            },
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "secretName": {
+                    "$ref": "#/$defs/name"
+                  },
+                  "keyFingerprint": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^SHA256:[A-Za-z0-9+/]+={0,3}$"
+                  },
+                  "keyComment": {
+                    "$ref": "#/$defs/text"
+                  },
+                  "requireConfirm": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "hostPatterns": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "maxItems": 256
+                  },
+                  "settings": {
+                    "type": "object",
+                    "propertyNames": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "HostName": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "User": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "IdentityFile": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "IdentityAgent": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "ProxyCommand": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "ProxyJump": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "HostKeyAlias": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "UserKnownHostsFile": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "LocalForward": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "RemoteForward": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "DynamicForward": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "SetEnv": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "SendEnv": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "ControlPath": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "ControlMaster": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "ControlPersist": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "PreferredAuthentications": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "PubkeyAcceptedAlgorithms": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "HostKeyAlgorithms": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "Ciphers": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "MACs": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "KexAlgorithms": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "StrictHostKeyChecking": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "RequestTTY": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "RemoteCommand": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "LogLevel": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "IdentitiesOnly": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "ForwardAgent": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "AddKeysToAgent": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "Compression": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "TCPKeepAlive": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "ExitOnForwardFailure": {
+                          "type": [
+                            "boolean",
+                            "string"
+                          ],
+                          "pattern": "^[^\r\n]*$",
+                          "maxLength": 1024
+                        },
+                        "Port": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "ServerAliveInterval": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "ServerAliveCountMax": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "ConnectTimeout": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false,
+                      "propertyNames": {
+                        "$ref": "#/$defs/name"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "secretName",
+                  "hostPatterns",
+                  "settings"
+                ],
+                "additionalProperties": false,
+                "anyOf": [
+                  {
+                    "required": [
+                      "keyFingerprint"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "keyComment"
+                    ]
+                  }
+                ]
+              },
+              "maxItems": 256
+            }
+          },
+          "required": [
+            "defaultKey",
+            "keys"
+          ],
+          "additionalProperties": false
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "modes": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/name"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "proxyPacUrl": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^https?://[^ @\r\n]+$"
+                  },
+                  "dnsServers": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/ipAddress"
+                    },
+                    "maxItems": 256
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "default": {}
+        }
+      },
+      "required": [
+        "system",
+        "user",
+        "development",
+        "ssh",
+        "applications"
+      ],
+      "additionalProperties": false
+    },
+    "nixos": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "type": "object",
+          "properties": {
+            "uid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "subUidRanges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "startUid": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [ "startUid", "count" ],
+                "additionalProperties": false
+              },
+              "maxItems": 256
+            },
+            "subGidRanges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "startGid": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [ "startGid", "count" ],
+                "additionalProperties": false
+              },
+              "maxItems": 256
+            },
+            "hostname": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$"
+            },
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[a-z_][a-z0-9_-]*$"
+            },
+            "homeDirectory": {
+              "$ref": "#/$defs/absolutePath"
+            },
+            "platform": {
+              "type": "string",
+              "enum": [
+                "x86_64-linux"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "server"
+              ]
+            },
+            "homeStateVersion": {
+              "$ref": "#/$defs/homeStateVersion"
+            },
+            "systemStateVersion": {
+              "$ref": "#/$defs/homeStateVersion"
+            },
+            "checkout": {
+              "$ref": "#/$defs/absolutePath"
+            }
+          },
+          "required": [
+            "hostname",
+            "username",
+            "homeDirectory",
+            "platform",
+            "role",
+            "homeStateVersion",
+            "systemStateVersion",
+            "checkout",
+            "uid",
+            "subUidRanges",
+            "subGidRanges"
+          ],
+          "additionalProperties": false
+        },
+        "user": {
+          "type": "object",
+          "properties": {
+            "fullName": {
+              "$ref": "#/$defs/text"
+            },
+            "email": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[^ @\r\n]+@[^ @\r\n]+$"
+            },
+            "templateEmail": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[^ @\r\n]+@[^ @\r\n]+$",
+              "x-default-from": "email"
+            },
+            "gitSigningKey": {
+              "type": [
+                "null",
+                "string"
+              ],
+              "pattern": "^((/|~/|[.]/)[^\r\n]+|(ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/]+={0,3}( [^\r\n]*)?)$",
+              "maxLength": 8192,
+              "default": null
+            },
+            "signCommits": {
+              "type": "boolean",
+              "default": false
+            },
+            "authorizedKeys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/publicKey"
+              },
+              "maxItems": 256,
+              "default": []
+            }
+          },
+          "required": [
+            "fullName",
+            "email"
+          ],
+          "additionalProperties": false
+        },
+        "development": {
+          "type": "object",
+          "properties": {
+            "nodeMajor": {
+              "type": "integer",
+              "minimum": 18,
+              "maximum": 99
+            },
+            "pythonMinor": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 99
+            }
+          },
+          "required": [
+            "nodeMajor",
+            "pythonMinor"
+          ],
+          "additionalProperties": false
+        },
+        "applications": {
+          "type": "object",
+          "properties": {
+            "omp": {
+              "type": "object",
+              "properties": {
+                "symbolPreset": {
+                  "$ref": "#/$defs/name"
+                },
+                "theme": {
+                  "type": "object",
+                  "properties": {
+                    "dark": {
+                      "$ref": "#/$defs/name"
+                    },
+                    "light": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "setupVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "edit": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "apply_patch",
+                        "replace"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "composer": {
+                  "type": "object",
+                  "properties": {
+                    "shape": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "dev": {
+                  "type": "object",
+                  "properties": {
+                    "autoqaConsent": {
+                      "type": "string",
+                      "enum": [
+                        "granted",
+                        "denied"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "git": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "display": {
+                  "type": "object",
+                  "properties": {
+                    "showTokenUsage": {
+                      "type": "boolean"
+                    },
+                    "cacheMissMarker": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "statusLine": {
+                  "type": "object",
+                  "properties": {
+                    "preset": {
+                      "$ref": "#/$defs/name"
+                    },
+                    "separator": {
+                      "$ref": "#/$defs/name"
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                "extendedContext": {
+                  "type": "boolean"
+                },
+                "modelRoles": {
+                  "type": "object",
+                  "propertyNames": {
+                    "$ref": "#/$defs/name"
+                  },
+                  "additionalProperties": {
+                    "$ref": "#/$defs/text"
+                  }
+                },
+                "retry": {
+                  "type": "object",
+                  "properties": {
+                    "fallbackChains": {
+                      "type": "object",
+                      "propertyNames": {
+                        "$ref": "#/$defs/name"
+                      },
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/text"
+                        },
+                        "maxItems": 256
+                      }
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "default": {}
+        },
+        "hardware": {
+          "type": "object",
+          "properties": {
+            "cpuVendor": {
+              "type": "string",
+              "enum": [ "intel", "amd", "other" ]
+            },
+            "raidEnabled": {
+              "type": "boolean"
+            },
+            "smartDevices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/absolutePath"
+              },
+              "maxItems": 256
+            },
+            "initrdAvailableKernelModules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/name"
+              },
+              "maxItems": 256
+            },
+            "initrdKernelModules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/name"
+              },
+              "maxItems": 256
+            },
+            "kernelModules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/name"
+              },
+              "maxItems": 256
+            },
+            "fileSystems": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/absolutePath"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "device": {
+                    "$ref": "#/$defs/absolutePath"
+                  },
+                  "fsType": {
+                    "$ref": "#/$defs/name"
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "maxItems": 256,
+                    "default": []
+                  },
+                  "neededForBoot": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "device",
+                  "fsType"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "swapDevices": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "device": {
+                    "$ref": "#/$defs/absolutePath"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32767
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "maxItems": 256,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "device"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 256
+            }
+          },
+          "required": [
+            "initrdAvailableKernelModules",
+            "initrdKernelModules",
+            "kernelModules",
+            "fileSystems",
+            "swapDevices",
+            "cpuVendor",
+            "raidEnabled",
+            "smartDevices"
+          ],
+          "additionalProperties": false
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "lanInterface": {
+              "$ref": "#/$defs/name"
+            },
+            "lanAddress": {
+              "$ref": "#/$defs/ipv4"
+            },
+            "lanSubnet": {
+              "$ref": "#/$defs/ipv4Subnet"
+            }
+          },
+          "required": [
+            "lanInterface",
+            "lanAddress",
+            "lanSubnet"
+          ],
+          "additionalProperties": false
+        },
+        "homelab": {
+          "type": "object",
+          "properties": {
+            "instance": {
+              "$ref": "#/$defs/name"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^[A-Za-z_+-]+(/[A-Za-z0-9_+-]+)*$"
+            },
+            "lanDomain": {
+              "$ref": "#/$defs/domain"
+            },
+            "publicDomain": {
+              "$ref": "#/$defs/domain"
+            },
+            "proxyAddress": {
+              "$ref": "#/$defs/ipv4"
+            },
+            "appsSubnet": {
+              "$ref": "#/$defs/ipv4Subnet"
+            },
+            "caCertificateFile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "pattern": "^trust/[A-Za-z0-9][A-Za-z0-9_.-]*\\.pem$"
+            },
+            "restoreRoot": {
+              "$ref": "#/$defs/absolutePath"
+            },
+            "restoreDestination": {
+              "$ref": "#/$defs/absolutePath"
+            },
+            "stateRoot": {
+              "$ref": "#/$defs/absolutePath"
+            },
+            "paths": {
+              "type": "object",
+              "properties": {
+                "raidRoot": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "immich": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "opencloud": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "media": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "books": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "notes": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "checkout": {
+                  "$ref": "#/$defs/absolutePath"
+                },
+                "treeCheckout": {
+                  "$ref": "#/$defs/absolutePath"
+                }
+              },
+              "required": [
+                "raidRoot",
+                "immich",
+                "opencloud",
+                "media",
+                "books",
+                "notes",
+                "checkout",
+                "treeCheckout"
+              ],
+              "additionalProperties": false
+            },
+            "vpn": {
+              "type": "object",
+              "properties": {
+                "subnet": {
+                  "$ref": "#/$defs/ipv4Subnet"
+                },
+                "address": {
+                  "$ref": "#/$defs/ipv4"
+                },
+                "dns": {
+                  "$ref": "#/$defs/ipv4"
+                },
+                "countries": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^[A-Za-z][A-Za-z -]*$"
+                  },
+                  "maxItems": 256
+                },
+                "gateway": {
+                  "$ref": "#/$defs/ipv4"
+                }
+              },
+              "required": [
+                "subnet",
+                "address",
+                "dns",
+                "countries",
+                "gateway"
+              ],
+              "additionalProperties": false
+            },
+            "dns": {
+              "type": "object",
+              "properties": {
+                "vpnHostname": {
+                  "$ref": "#/$defs/domain"
+                },
+                "zoneId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024,
+                  "pattern": "^[a-fA-F0-9]{32}$"
+                },
+                "routerInterfaceId": {
+                  "type": "string",
+                  "pattern": "^::[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4}){0,3}$",
+                  "minLength": 3,
+                  "maxLength": 21
+                }
+              },
+              "required": [
+                "vpnHostname",
+                "zoneId",
+                "routerInterfaceId"
+              ],
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "properties": {
+                "repositoryUri": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024,
+                  "pattern": "^[^\r\n]+$"
+                },
+                "repositoryId": {
+                  "$ref": "#/$defs/text"
+                },
+                "ageRecipient": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024,
+                  "pattern": "^age1[a-z0-9]+$"
+                }
+              },
+              "required": [
+                "repositoryUri",
+                "repositoryId",
+                "ageRecipient"
+              ],
+              "additionalProperties": false
+            },
+            "observability": {
+              "type": "object",
+              "properties": {
+                "instance": {
+                  "$ref": "#/$defs/name"
+                },
+                "logsDatasource": {
+                  "$ref": "#/$defs/text"
+                },
+                "metricsDatasource": {
+                  "$ref": "#/$defs/text"
+                },
+                "logsDatasourceName": {
+                  "$ref": "#/$defs/text"
+                },
+                "metricsDatasourceName": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "instance",
+                "logsDatasource",
+                "metricsDatasource",
+                "logsDatasourceName",
+                "metricsDatasourceName"
+              ],
+              "additionalProperties": false
+            },
+            "services": {
+              "type": "object",
+              "properties": {
+                "core": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "backrest": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "vpn-ddns": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "ingress": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "alloy": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "metrics": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "homeassistant": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "immich": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "opencloud": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "jellyfin": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "kavita": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "readeck": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "silverbullet": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "speedtest": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "termix": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "tern": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "transmission": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "tree-eclass": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false,
+              "default": {}
+            },
+            "esphomeUsername": {
+              "$ref": "#/$defs/name"
+            },
+            "publicSessionName": {
+              "$ref": "#/$defs/name"
+            },
+            "displayName": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": [
+            "instance",
+            "timeZone",
+            "lanDomain",
+            "publicDomain",
+            "proxyAddress",
+            "appsSubnet",
+            "restoreRoot",
+            "restoreDestination",
+            "stateRoot",
+            "paths",
+            "vpn",
+            "dns",
+            "backup",
+            "observability",
+            "services",
+            "esphomeUsername",
+            "publicSessionName",
+            "displayName"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "system",
+        "user",
+        "development",
+        "hardware",
+        "network",
+        "homelab"
+      ],
+      "additionalProperties": false
+    },
+    "imageFeed": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+        }
+      },
+      "required": [
+        "path",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "imagePins": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "images": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*@sha256:[0-9a-f]{64}$"
+              },
+              "version": {
+                "$ref": "#/$defs/text"
+              },
+              "order": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxItems": 256
+              },
+              "unreleased_baseline": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "reference",
+              "version"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "images"
+      ],
+      "additionalProperties": false
+    },
+    "absolutePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^/[^\r\n]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\r\n]*$"
+    },
+    "ipAddress": {
+      "description": "IPv4 or IPv6 literal, including compressed and embedded IPv4 forms; no zone identifier or CIDR suffix. POSIX ERE keeps Python and Nix validation identical.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 45,
+      "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,7}:|([0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,5}(:[0-9A-Fa-f]{1,4}){1,2}|([0-9A-Fa-f]{1,4}:){1,4}(:[0-9A-Fa-f]{1,4}){1,3}|([0-9A-Fa-f]{1,4}:){1,3}(:[0-9A-Fa-f]{1,4}){1,4}|([0-9A-Fa-f]{1,4}:){1,2}(:[0-9A-Fa-f]{1,4}){1,5}|([0-9A-Fa-f]{1,4}:){1,1}(:[0-9A-Fa-f]{1,4}){1,6}|:(:[0-9A-Fa-f]{1,4}){1,7}|::|(([0-9A-Fa-f]{1,4}:){6}|::([0-9A-Fa-f]{1,4}:){0,5}|([0-9A-Fa-f]{1,4}:){1}:([0-9A-Fa-f]{1,4}:){0,4}|([0-9A-Fa-f]{1,4}:){2}:([0-9A-Fa-f]{1,4}:){0,3}|([0-9A-Fa-f]{1,4}:){3}:([0-9A-Fa-f]{1,4}:){0,2}|([0-9A-Fa-f]{1,4}:){4}:([0-9A-Fa-f]{1,4}:){0,1}|([0-9A-Fa-f]{1,4}:){5}:([0-9A-Fa-f]{1,4}:){0,0})(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]))$"
+    },
+    "ipv4": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
+    },
+    "ipv4Subnet": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(3[0-2]|[12]?[0-9])$"
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$"
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192,
+      "pattern": "^(ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com) [A-Za-z0-9+/]+={0,3}( [^\r\n]*)?$"
+    },
+    "homeStateVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[0-9][0-9]\\.(05|11)$"
+    }
+  }
+}

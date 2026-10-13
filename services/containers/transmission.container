@@ -1,0 +1,52 @@
+[Unit]
+Description=Transmission daemon over WireGuard tunnel with paused start
+PartOf=homelab.target
+Requires=transmission-gluetun.service transmission-network.service
+After=transmission-gluetun.service transmission-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=TransmissionVPN
+Image=@image:transmission@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Entrypoint=/bin/bash
+Exec=/usr/local/bin/transmission-nonroot-entrypoint
+# Shares the gluetun network namespace: all traffic leaves via the tunnel
+# (kill-switch by construction). No PublishPort here; nginx reaches the
+# WebUI through gluetun's loopback publish.
+Network=transmission-gluetun.container
+# Shares the tunnel netns from gluetun: no caps of its own (NET_ADMIN
+# belongs to the firewall owner, gluetun).
+Environment=PUID=1000
+Environment=PGID=1000
+Environment=TZ=@timezone@
+Volume=@state-root@/transmission/transmission-home:/config:rw
+Volume=@transmission-config@/nonroot-entrypoint.sh:/usr/local/bin/transmission-nonroot-entrypoint:ro
+Volume=@state-root@/transmission/protonvpn:/etc/openvpn/custom:rw
+Volume=@state-root@/transmission/protonvpn/resolv.conf:/etc/resolv.conf:ro
+Volume=transmission-data:/data:rw
+Volume=@media-path@:/data/raid:rw
+NoNewPrivileges=true
+HealthCmd=curl --fail --silent --show-error --max-time 5 --header "X-Transmission-Session-Id: x" --output /dev/null http://127.0.0.1:9091/transmission/web/
+HealthInterval=60s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=120s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare transmission
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

@@ -1,0 +1,5 @@
+[Unit]
+Description=Transmission image-created data volume
+
+[Volume]
+VolumeName=transmission-data

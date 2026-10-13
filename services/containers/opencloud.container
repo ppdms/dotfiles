@@ -1,0 +1,88 @@
+[Unit]
+Description=OpenCloud file library
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=opencloud
+Image=@image:opencloud@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=all
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-opencloud@:9200
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
+AddHost=files.@public-domain@:@host-loopback-address@
+# The credential broker supplies OpenCloud identity configuration.
+# Runtime-only public TLS bundle; service configuration is non-secret.
+Volume=%t/homelab-secrets/opencloud/opencloud.yaml:/etc/opencloud/opencloud.yaml:ro
+Volume=@opencloud-config@/csp.yaml:/etc/opencloud/csp.yaml:ro
+Volume=@opencloud-config@/proxy.yaml:/etc/opencloud/proxy.yaml:ro
+Volume=@opencloud-path@/data:/var/lib/opencloud:rw
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=%t/homelab-opencloud/tls-bundle.crt:/run/opencloud/tls-bundle.crt:ro
+Environment=SSL_CERT_FILE=/run/opencloud/tls-bundle.crt
+Environment=OC_URL=https://files.@public-domain@
+Environment=OC_OIDC_ISSUER=https://auth.@public-domain@
+Environment=PROXY_HTTP_ADDR=0.0.0.0:9200
+Environment=PROXY_TLS=false
+# Non-collaborative POSIX storage uses normal files and their xattrs.
+Environment=STORAGE_USERS_DRIVER=posix
+Environment=STORAGE_USERS_POSIX_ROOT=/var/lib/opencloud/storage/users
+Environment=STORAGE_USERS_POSIX_WATCH_FS=false
+Environment=STORAGE_USERS_POSIX_SCAN_FS=true
+# Match the existing LDAP account, never provision a replacement UUID.
+Environment=PROXY_USER_OIDC_CLAIM=preferred_username
+Environment=PROXY_USER_CS3_CLAIM=username
+# CS3 ownership origin matches the value stored in the space.
+Environment=PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt
+Environment=PROXY_OIDC_INSECURE=false
+Environment=PROXY_OIDC_REWRITE_WELLKNOWN=true
+Environment=PROXY_AUTOPROVISION_ACCOUNTS=false
+Environment=PROXY_CSP_CONFIG_FILE_LOCATION=/etc/opencloud/csp.yaml
+Environment=WEBFINGER_WEB_OIDC_CLIENT_ID=opencloud
+Environment=WEBFINGER_WEB_OIDC_CLIENT_SCOPES=openid,profile,email,groups,offline_access
+Environment=WEBFINGER_DESKTOP_OIDC_CLIENT_ID=OpenCloudDesktop
+Environment=WEBFINGER_DESKTOP_OIDC_CLIENT_SCOPES=openid,profile,email,groups,offline_access
+Environment=WEBFINGER_IOS_OIDC_CLIENT_ID=OpenCloudIOS
+Environment=WEBFINGER_IOS_OIDC_CLIENT_SCOPES=openid,profile,email,groups,offline_access
+Environment=WEB_OIDC_CLIENT_ID=opencloud
+Environment="WEB_OIDC_SCOPE=openid profile email groups offline_access"
+Environment=WEB_OIDC_AUTHORITY=https://files.@public-domain@
+Environment=WEB_OIDC_METADATA_URL=https://files.@public-domain@/.well-known/openid-configuration
+# Browser discovery stays same-origin behind Cloudflare Access: the web
+# UserManager otherwise derives authority from the webfinger issuer
+# (auth.@public-domain@), and WEB_OIDC_METADATA_URL cannot override it. Backend
+# proxy OIDC still verifies against the real issuer (OC_OIDC_ISSUER).
+Environment=WEBFINGER_OIDC_ISSUER=https://files.@public-domain@
+Environment=OC_EXCLUDE_RUN_SERVICES=idp
+Environment=PROXY_ROLE_ASSIGNMENT_DRIVER=oidc
+Environment=GRAPH_ASSIGN_DEFAULT_USER_ROLE=false
+HealthCmd=opencloud proxy health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=180s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare opencloud
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=900s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+# NATS indexes thrash under a 3 GiB startup soft limit.
+MemoryHigh=4G
+MemoryMax=4G
+
+[Install]
+WantedBy=homelab.target

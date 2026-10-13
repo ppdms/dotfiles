@@ -1,0 +1,150 @@
+{
+  "profiles": {
+    "nixos": {
+      "system": {
+        "hostname": "example-server",
+        "username": "example",
+        "homeDirectory": "/home/example",
+        "platform": "x86_64-linux",
+        "role": "server",
+        "homeStateVersion": "26.05",
+        "systemStateVersion": "26.05",
+        "checkout": "/home/example/dotfiles",
+        "uid": 1000,
+        "subUidRanges": [
+          {
+            "startUid": 100000,
+            "count": 65536
+          }
+        ],
+        "subGidRanges": [
+          {
+            "startGid": 100000,
+            "count": 65536
+          }
+        ]
+      },
+      "user": {
+        "fullName": "Example User",
+        "email": "example@example.net",
+        "templateEmail": "example@example.net",
+        "gitSigningKey": null,
+        "signCommits": false,
+        "authorizedKeys": []
+      },
+      "development": {
+        "nodeMajor": 24,
+        "pythonMinor": 13
+      },
+      "applications": {
+        "omp": {}
+      },
+      "hardware": {
+        "cpuVendor": "other",
+        "raidEnabled": false,
+        "smartDevices": [],
+        "initrdAvailableKernelModules": [
+          "nvme",
+          "xhci_pci",
+          "usb_storage"
+        ],
+        "initrdKernelModules": [],
+        "kernelModules": [],
+        "fileSystems": {
+          "/": {
+            "device": "/dev/disk/by-label/server-root",
+            "fsType": "ext4",
+            "options": [
+              "defaults"
+            ],
+            "neededForBoot": true
+          },
+          "/boot": {
+            "device": "/dev/disk/by-label/server-boot",
+            "fsType": "vfat",
+            "options": [
+              "umask=0077"
+            ],
+            "neededForBoot": true
+          }
+        },
+        "swapDevices": []
+      },
+      "network": {
+        "lanInterface": "enp1s0",
+        "lanAddress": "192.0.2.10",
+        "lanSubnet": "192.0.2.0/24"
+      },
+      "homelab": {
+        "instance": "example-server",
+        "timeZone": "UTC",
+        "lanDomain": "apps.example.test",
+        "publicDomain": "example.net",
+        "proxyAddress": "10.89.0.27",
+        "appsSubnet": "10.89.0.0/24",
+        "caCertificateFile": "trust/lan-root-ca.pem",
+        "restoreRoot": "/home/example/restores/config",
+        "restoreDestination": "/home/example/restores",
+        "stateRoot": "/home/example/.local/share/homelab",
+        "esphomeUsername": "example",
+        "publicSessionName": "authelia_session_public",
+        "displayName": "Example Apps",
+        "paths": {
+          "raidRoot": "/srv/storage",
+          "immich": "/srv/storage/photos",
+          "opencloud": "/srv/storage/cloud",
+          "media": "/srv/storage/media",
+          "books": "/srv/storage/books",
+          "notes": "/home/example/notes",
+          "checkout": "/home/example/homelab",
+          "treeCheckout": "/home/example/Developer/tree-eclass"
+        },
+        "vpn": {
+          "subnet": "172.69.0.0/16",
+          "address": "172.69.0.2",
+          "gateway": "172.69.0.1",
+          "dns": "10.2.0.1",
+          "countries": [
+            "Greece"
+          ]
+        },
+        "dns": {
+          "vpnHostname": "vpn.example.net",
+          "zoneId": "00000000000000000000000000000000",
+          "routerInterfaceId": "::1"
+        },
+        "backup": {
+          "repositoryUri": "rclone:Backup:restic_example",
+          "repositoryId": "example",
+          "ageRecipient": "age1kwngj8y406h2l2xf7aty8kcmkf4frkchf5d7nujqwfndmf05l92qlgya5d"
+        },
+        "observability": {
+          "instance": "example-server",
+          "logsDatasource": "logs",
+          "metricsDatasource": "metrics",
+          "logsDatasourceName": "Example Logs",
+          "metricsDatasourceName": "Example Metrics"
+        },
+        "services": {
+          "alloy": true,
+          "backrest": true,
+          "core": true,
+          "homeassistant": true,
+          "immich": true,
+          "ingress": true,
+          "jellyfin": true,
+          "kavita": true,
+          "metrics": true,
+          "opencloud": true,
+          "readeck": true,
+          "silverbullet": true,
+          "speedtest": true,
+          "termix": true,
+          "transmission": true,
+          "tree-eclass": true,
+          "vpn-ddns": true
+        }
+      }
+    }
+  }
+}

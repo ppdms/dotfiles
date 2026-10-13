@@ -1,0 +1,58 @@
+{
+  pkgs,
+  systemConfig,
+  ...
+}:
+let
+  python = pkgs.${"python3${toString systemConfig.development.pythonMinor}"};
+  pythonTools = python.withPackages (ps: [
+    ps.pip
+    ps.pypdf
+  ]);
+  node = pkgs.${"nodejs_${toString systemConfig.development.nodeMajor}"};
+in
+{
+  home.packages = with pkgs; [
+    gh
+    git-filter-repo
+    tokei
+    imagemagick
+    ripgrep
+    fd
+    jq
+    pythonTools
+    node
+    tmux
+    ncdu
+    htop
+    tree
+    wget
+    curl
+    nixfmt
+    uv
+    rustup
+    cmake
+    gnumake
+    pkg-config
+    eslint
+    ruff
+    hugo
+    sops
+    age
+    ssh-to-age
+    restic
+    rclone
+    nmap
+    arp-scan
+    openssl
+    openssh
+    bash
+    coreutils
+    findutils
+    gawk
+    gnugrep
+    gnused
+    rsync
+    lsof
+  ];
+}

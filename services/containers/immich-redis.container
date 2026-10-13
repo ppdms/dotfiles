@@ -1,0 +1,35 @@
+[Unit]
+Description=Immich Valkey cache
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=immich_redis
+Image=@image:immich-redis@
+User=999:999
+UserNS=keep-id:uid=999,gid=999
+Pull=never
+Network=apps-net.network
+NetworkAlias=immich-valkey
+Volume=immich-redis-data:/data:rw
+HealthCmd=valkey-cli ping
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=10s
+
+[Service]
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=410M
+MemoryMax=512M
+
+[Install]
+WantedBy=homelab.target

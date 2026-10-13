@@ -1,0 +1,14 @@
+[Unit]
+Description=Isolated Transmission VPN network
+Before=homelab.target
+
+[Network]
+NetworkName=transmission
+Driver=bridge
+NetworkDeleteOnStop=true
+Subnet=@vpn-subnet@
+Gateway=@vpn-gateway@
+IPv6=false
+# Both sides must opt in: VPN/torrent peers cannot bypass dedicated backends
+# by routing directly to their IPs. The nginx WebUI interface stays local.
+Options=isolate=true

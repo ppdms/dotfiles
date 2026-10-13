@@ -1,0 +1,63 @@
+{
+  "theme": "Tomorrow Night",
+  "auto_install_extensions": {
+    "tomorrow-theme": true,
+    "latex": true
+  },
+  "vim_mode": true,
+  "buffer_font_family": "JetBrainsMono Nerd Font Mono",
+  "buffer_font_size": 14,
+  "buffer_font_features": {
+    "liga": true
+  },
+  "ui_font_size": 16,
+  "terminal": {
+    "font_family": "JetBrainsMono Nerd Font Mono",
+    "font_features": {
+      "liga": true
+    }
+  },
+  "hard_tabs": true,
+  "soft_wrap": "editor_width",
+  "show_whitespaces": "all",
+  "format_on_save": "on",
+  "use_autoclose": false,
+  "use_auto_surround": false,
+  "scroll_beyond_last_line": "off",
+  "scrollbar": {
+    "axes": {
+      "horizontal": false
+    }
+  },
+  "remove_trailing_whitespace_on_save": false,
+  "ensure_final_newline_on_save": false,
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false
+  },
+  "file_scan_exclusions": [
+    "...",
+    "**/.venv",
+    "**/__pycache__",
+    "**/*.class",
+    "**/*.code-workspace",
+    "**/immich/library/**",
+    "**/immich/postgres/**",
+    "**/immich/immich_auto_album/.venv/**",
+    "**/backrest/backrest/cache/**",
+    "**/backrest/backrest/data/**",
+    "**/backrest/backrest/tmp/**",
+    "**/email-archive/mail-data/**",
+    "**/email-archive/mail-state/**",
+    "**/homeAssistant/data/**",
+    "**/homeAssistant/mosquitto/data/**",
+    "**/homeAssistant/mosquitto/log/**",
+    "**/jellyfin/cache/**",
+    "**/jellyfin/config/**",
+    "**/miniflux/data/**",
+    "**/readeck/data/**",
+    "**/tree-eclass/data/**",
+    "**/transmission/transmission/**",
+    "**/wud/store/**"
+  ]
+}

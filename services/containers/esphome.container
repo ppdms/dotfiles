@@ -1,0 +1,42 @@
+[Unit]
+Description=Homelab ESPHome dashboard
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=esphome
+Image=@image:esphome@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+# Private namespace may limit mDNS; device flashing/adoption uses unicast.
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-esphome@:6052
+Environment=TZ=@timezone@
+Volume=@state-root@/homeassistant/esphome:/config:rw
+Volume=/etc/localtime:/etc/localtime:ro
+EnvironmentFile=%t/homelab-secrets/esphome/dashboard.env
+NoNewPrivileges=true
+HealthCmd=curl --fail --silent --show-error --max-time 5 --output /dev/null http://127.0.0.1:6052/
+HealthInterval=60s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=120s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare esphome
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

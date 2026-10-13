@@ -1,0 +1,302 @@
+---
+server:
+  address: 'tcp://0.0.0.0:9091'
+  endpoints:
+    enable_pprof: false
+log:
+  level: info
+authentication_backend:
+  file:
+    path: '/run/secrets/users.yml'
+session:
+  cookies:
+    - domain: '@lan-domain@'
+      authelia_url: 'https://auth.@lan-domain@'
+      default_redirection_url: 'https://backup.@lan-domain@'
+      name: 'authelia_session'
+      same_site: 'lax'
+      expiration: '30d'
+      inactivity: '30d'
+      remember_me: '1M'
+    - domain: '@public-domain@'
+      authelia_url: 'https://auth.@public-domain@'
+      default_redirection_url: 'https://photos.@public-domain@'
+      name: '@public-session-name@'
+      same_site: 'lax'
+      expiration: '30d'
+      inactivity: '30d'
+      remember_me: '1M'
+storage:
+  local:
+    path: '/data/db.sqlite3'
+webauthn:
+  enable_passkey_login: true
+  display_name: '@display-name@'
+  timeout: '60s'
+access_control:
+  default_policy: deny
+  rules:
+    - domain: 'auth.@lan-domain@'
+      policy: bypass
+    - domain: 'auth.@public-domain@'
+      policy: bypass
+    # Backrest requires one-factor authentication on these explicit domains.
+    # Do not broaden this rule to unselected apps.
+    - domain: 'backup.@lan-domain@'
+      policy: one_factor
+    - domain: 'backup.@public-domain@'
+      policy: one_factor
+    # OIDC-direct apps: no forward-auth gate (it would fight the app's own
+    # OIDC code flow against the other portal's session). The app's OIDC-only
+    # login is the boundary.
+    - domain: 'books.@lan-domain@'
+      policy: bypass
+    - domain: 'books.@public-domain@'
+      policy: bypass
+    - domain: 'notes.@lan-domain@'
+      policy: one_factor
+    - domain: 'notes.@public-domain@'
+      policy: one_factor
+    - domain: 'tldr.@lan-domain@'
+      policy: one_factor
+    - domain: 'tldr.@public-domain@'
+      policy: one_factor
+    - domain: 'speedtest.@lan-domain@'
+      policy: one_factor
+    - domain: 'speedtest.@public-domain@'
+      policy: one_factor
+    - domain: 'torrents.@lan-domain@'
+      policy: one_factor
+    - domain: 'torrents.@public-domain@'
+      policy: one_factor
+    - domain: 'omp.@lan-domain@'
+      policy: one_factor
+    - domain: 'omp.@public-domain@'
+      policy: one_factor
+identity_providers:
+  oidc:
+    # Load private issuer material through the runtime template filter.
+    jwks:
+      - key: {{ secret "/run/secrets/oidc-issuer.pem" | mindent 10 "|" | msquote }}
+    # OpenCloud uses file-service-specific access and refresh token lifespans.
+    lifespans:
+      custom:
+        opencloud:
+          access_token: '2 days'
+          refresh_token: '3 days'
+    # OpenCloud web PKCE calls these endpoints cross-origin.
+    # files.@public-domain@ itself is Access-gated; redirect-URI CORS narrowly
+    # permits the browser session that already reached it. No wildcard origin.
+    # Discovery/userinfo stay same-origin (no CORS endpoint): browsers fetch
+    # /.well-known and userinfo through files.@public-domain@ only.
+    cors:
+      endpoints:
+        - 'authorization'
+        - 'token'
+        - 'revocation'
+        - 'introspection'
+        - 'userinfo'
+      allowed_origins_from_client_redirect_uris: true
+    claims_policies:
+      # Supply the account-matching username in addition to the subject.
+      opencloud:
+        id_token:
+          - 'email'
+          - 'email_verified'
+          - 'preferred_username'
+          - 'name'
+          - 'groups'
+      termix:
+        id_token:
+          - 'email'
+          - 'email_verified'
+          - 'preferred_username'
+          - 'name'
+          # Termix maps the Authelia 'admins' group to its own admin role.
+          - 'groups'
+      # Kavita syncs application roles from the configured groups claim.
+      kavita:
+        id_token:
+          - 'email'
+          - 'email_verified'
+          - 'preferred_username'
+          - 'name'
+          - 'groups'
+    # Confidential client verifiers are authentication material, not public
+    # configuration. Load hashes from the separate private runtime bundle;
+    # consuming apps receive the matching plaintext secrets.
+    # OpenCloud web, desktop, and iOS are public PKCE clients without secrets.
+    clients:
+      - client_id: forgejo
+        client_name: Forgejo
+        client_secret: {{ secret "/run/secrets/authelia-oidc/forgejo" | msquote }}
+        public: false
+        authorization_policy: one_factor
+        require_pkce: true
+        pkce_challenge_method: S256
+        redirect_uris:
+        - https://git.@lan-domain@/user/oauth2/authelia/callback
+        scopes:
+        - openid
+        - profile
+        - email
+        response_types:
+        - code
+        grant_types:
+        - authorization_code
+        access_token_signed_response_alg: none
+        userinfo_signed_response_alg: none
+        token_endpoint_auth_method: client_secret_basic
+      - client_id: 'immich'
+        client_name: 'Immich'
+        client_secret: {{ secret "/run/secrets/authelia-oidc/immich" | msquote }}
+        authorization_policy: one_factor
+        # immich (oauth4webapi) authenticates at the token endpoint with the
+        # secret in the POST body, like user_oidc — pin client_secret_post.
+        token_endpoint_auth_method: 'client_secret_post'
+        redirect_uris:
+          - 'https://photos.@lan-domain@/auth/login'
+          - 'https://photos.@lan-domain@/user-settings'
+          - 'https://photos.@public-domain@/auth/login'
+          - 'https://photos.@public-domain@/user-settings'
+          - 'app.immich:///oauth-callback'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+      - client_id: 'jellyfin'
+        client_name: 'Jellyfin'
+        client_secret: {{ secret "/run/secrets/authelia-oidc/jellyfin" | msquote }}
+        authorization_policy: one_factor
+        redirect_uris:
+          # SSO-OIDC plugin callback (Jellyfin.Plugin.OIDC, provider id 'authelia')
+          - 'https://movies.@lan-domain@/sso/OIDC/Callback/authelia'
+          - 'https://movies.@public-domain@/sso/OIDC/Callback/authelia'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+      - client_id: 'opencloud'
+        client_name: 'OpenCloud'
+        claims_policy: opencloud
+        public: true
+        authorization_policy: one_factor
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://files.@public-domain@/'
+          - 'https://files.@public-domain@/oidc-callback.html'
+          - 'https://files.@public-domain@/oidc-silent-redirect.html'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        response_types:
+          - 'code'
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
+        scopes:
+          - 'openid'
+          - 'offline_access'
+          - 'groups'
+          - 'profile'
+          - 'email'
+        lifespan: 'opencloud'
+      - client_id: 'OpenCloudDesktop'
+        client_name: 'OpenCloud Desktop'
+        claims_policy: opencloud
+        public: true
+        authorization_policy: one_factor
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        # Native clients select an ephemeral loopback port (RFC 8252).
+        redirect_uris:
+          - 'http://127.0.0.1'
+          - 'http://localhost'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        response_types:
+          - 'code'
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
+        scopes:
+          - 'openid'
+          - 'offline_access'
+          - 'groups'
+          - 'profile'
+          - 'email'
+        lifespan: 'opencloud'
+      - client_id: 'OpenCloudIOS'
+        client_name: 'OpenCloud iOS'
+        claims_policy: opencloud
+        public: true
+        authorization_policy: one_factor
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'oc://ios.opencloud.eu'
+          - 'oc.ios://ios.opencloud.eu'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        response_types:
+          - 'code'
+        access_token_signed_response_alg: 'RS256'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'none'
+        scopes:
+          - 'openid'
+          - 'offline_access'
+          - 'groups'
+          - 'profile'
+          - 'email'
+        lifespan: 'opencloud'
+      - client_id: 'termix'
+        client_name: 'Termix'
+        client_secret: {{ secret "/run/secrets/authelia-oidc/termix" | msquote }}
+        public: false
+        authorization_policy: one_factor
+        claims_policy: termix
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        token_endpoint_auth_method: 'client_secret_post'
+        redirect_uris:
+          - 'https://term.@lan-domain@/users/oidc/callback'
+          - 'https://term.@public-domain@/users/oidc/callback'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+        # The login page auto-redirects here (silent OIDC), so remember the
+        # consent for a month instead of prompting on every login.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1M'
+      - client_id: 'kavita'
+        client_name: 'Kavita'
+        client_secret: {{ secret "/run/secrets/authelia-oidc/kavita" | msquote }}
+        public: false
+        authorization_policy: one_factor
+        claims_policy: kavita
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        token_endpoint_auth_method: 'client_secret_post'
+        redirect_uris:
+          - 'https://books.@lan-domain@/signin-oidc'
+          - 'https://books.@public-domain@/signin-oidc'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+          # Kavita requests offline_access (refresh tokens) by default.
+          - 'offline_access'
+theme: auto
+notifier:
+  filesystem:
+    filename: '/data/notification.txt'

@@ -1,0 +1,43 @@
+directives:
+  default-src:
+    - "'none'"
+  child-src:
+    - "'self'"
+  connect-src:
+    - "'self'"
+    - 'blob:'
+    - 'https://auth.@public-domain@'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
+    - 'https://update.opencloud.eu/'
+    - 'https://tile.openstreetmap.org/'
+  font-src:
+    - "'self'"
+  frame-ancestors:
+    - "'self'"
+  frame-src:
+    - "'self'"
+    - 'blob:'
+    - 'https://auth.@public-domain@'
+  img-src:
+    - "'self'"
+    - 'data:'
+    - 'blob:'
+    - 'https://raw.githubusercontent.com/opencloud-eu/awesome-apps/'
+    - 'https://tile.openstreetmap.org/'
+  manifest-src:
+    - "'self'"
+  media-src:
+    - "'self'"
+  object-src:
+    - "'self'"
+    - 'blob:'
+  script-src:
+    - "'self'"
+    - "'unsafe-inline'"
+    - 'https://auth.@public-domain@'
+  style-src:
+    - "'self'"
+    - "'unsafe-inline'"
+  worker-src:
+    - "'self'"
+    - 'blob:'

@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+# THIS SOFTWARE COMES "AS IS", WITH NO WARRANTIES. THIS MEANS NO LIABILITY OR GUARANTEES FOR FUNCTIONALITY OR SAFETY, NEITHER EXPLICIT NOR IMPLIED. USE AT YOUR OWN RISK.
+from pypdf import PdfWriter, PdfReader
+import os
+import argparse
+
+def get_outline(reader, base_page=0):
+    """
+    Recursively extract outline entries with adjusted page numbers
+    """
+    def process_outline(outline):
+        if not outline:
+            return []
+
+        processed = []
+        i = 0
+        while i < len(outline):
+            item = outline[i]
+            if isinstance(item, list):
+                # Children of the previous entry — already attached below; skip here.
+                i += 1
+                continue
+
+            if isinstance(item, dict):
+                title = item.get('/Title', '')
+                page = base_page
+                if '/Page' in item:
+                    try:
+                        page = reader.get_destination_page_number(item)
+                        page += base_page
+                    except Exception:
+                        pass
+
+                entry = {
+                    'title': title,
+                    'page_number': page,
+                    'children': []
+                }
+
+                # In pypdf, children appear as a list immediately after their parent.
+                if i + 1 < len(outline) and isinstance(outline[i + 1], list):
+                    entry['children'] = process_outline(outline[i + 1])
+
+                processed.append(entry)
+
+            i += 1
+
+        return processed
+
+    if reader.outline is None:
+        return []
+
+    return process_outline(reader.outline)
+
+
+def find_merged_documents_outline(outline_entries):
+    """
+    Find and extract the "Merged Documents" section from existing outline
+    Returns (merged_docs, other_entries)
+    """
+    merged_docs = []
+    other_entries = []
+
+    if not outline_entries:
+        return merged_docs, other_entries
+
+    for i, entry in enumerate(outline_entries):
+        if entry['title'] == "Merged Documents":
+            merged_docs.extend(entry.get('children', []))
+            debug(entry.get('children', []))
+            other_entries.extend(outline_entries[:i] + outline_entries[i+1:])
+            return merged_docs, other_entries
+
+    return [], outline_entries
+
+def add_outline_to_writer(writer, outline_entries, parent=None, total_pages=0):
+    """
+    Recursively add outline entries to the writer
+    """
+    for entry in outline_entries:
+        page_num = max(0, min(entry['page_number'], total_pages - 1))
+
+        outline_item = writer.add_outline_item(
+            title=entry['title'],
+            page_number=page_num,
+            parent=parent
+        )
+
+        if entry['children']:
+            add_outline_to_writer(writer, entry['children'], outline_item, total_pages)
+
+def merge_pdfs_with_toc(output_filename, *input_files):
+    """
+    Merge PDFs and create a table of contents that includes entries for each merged file
+    while preserving existing bookmarks and metadata.
+    """
+    writer = PdfWriter()
+    current_page = 0
+    all_outlines = []
+    existing_merged_docs = []
+    file_bookmarks = []
+
+    for pdf_file in input_files:
+        if not os.path.exists(pdf_file):
+            continue
+
+        try:
+            reader = PdfReader(pdf_file, strict=True)
+            outline = get_outline(reader, current_page)
+            debug(pdf_file)
+            for item in outline:
+                debug(item)
+
+
+            merged_docs, other_outlines = find_merged_documents_outline(outline)
+            debug("Merged documents:")
+            debug(merged_docs)
+            debug("Other outlines:")
+            debug(other_outlines)
+
+            if merged_docs:
+                existing_merged_docs.extend(merged_docs)
+                all_outlines.extend(other_outlines)
+            else:
+                all_outlines.extend(outline)
+                filename_without_ext = os.path.splitext(os.path.basename(pdf_file))[0]
+                file_bookmarks.append({
+                    'title': filename_without_ext,
+                    'page_number': current_page,
+                    'children': []
+                })
+
+            for page in reader.pages:
+                writer.add_page(page)
+
+            current_page += len(reader.pages)
+
+        except Exception as e:
+            print(f"Error processing '{pdf_file}': {str(e)}")
+            continue
+
+    try:
+        total_pages = current_page
+
+        merged_docs = existing_merged_docs + file_bookmarks
+        if merged_docs:
+            parent_outline = writer.add_outline_item(
+                title="Merged Documents",
+                page_number=0
+            )
+            add_outline_to_writer(writer, merged_docs, parent_outline, total_pages)
+
+        add_outline_to_writer(writer, all_outlines, None, total_pages)
+
+        output_dir = os.path.dirname(output_filename)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        with open(output_filename, 'wb') as output_file:
+            writer.write(output_file)
+
+    except Exception as e:
+        print(f"Error writing output file: {str(e)}")
+
+def debug(msg):
+    if DEBUG_MODE:
+        print(msg)
+
+def main():
+    parser = argparse.ArgumentParser(description='Merge PDFs with table of contents')
+    parser.add_argument('input_files', nargs='+', help='Input PDF files')
+    parser.add_argument('output_file', help='Output PDF file')
+
+    args = parser.parse_args()
+    global DEBUG_MODE
+    DEBUG_MODE = False
+    merge_pdfs_with_toc(args.output_file, *args.input_files)
+
+if __name__ == "__main__":
+    main()

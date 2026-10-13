@@ -1,0 +1,51 @@
+[Unit]
+Description=Homelab Home Assistant
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=homeassistant
+Image=@image:homeassistant@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+# Private network namespace preserves unicast integrations, not SSDP/mDNS discovery.
+# nginx reaches the HTTPS backend through its loopback-only publish.
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-homeassistant@:8123
+StopTimeout=90
+Environment=PUID=1000
+Environment=PGID=1000
+Environment=USER=homeassistant
+Environment=HOME=/config
+Environment=PYTHONUSERBASE=/config/deps
+Environment=TZ=@timezone@
+Tmpfs=/run:exec,mode=1777
+Volume=@state-root@/homeassistant/config:/config:rw
+Volume=%t/homelab-secrets/homeassistant/secrets.yaml:/config/secrets.yaml:ro
+Volume=@ca-certificate@:/usr/local/share/ca-certificates/homelab.pem:ro
+PodmanArgs=--unsetenv=UV_SYSTEM_PYTHON --unsetenv=UV_PYTHON
+NoNewPrivileges=true
+HealthCmd=curl --fail --silent --show-error --max-time 5 --cacert /usr/local/share/ca-certificates/homelab.pem --output /dev/null https://127.0.0.1:8123/
+HealthInterval=60s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=180s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare homeassistant
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

@@ -1,0 +1,5 @@
+[Unit]
+Description=Immich PostgreSQL data volume
+
+[Volume]
+VolumeName=immich-postgres-data

@@ -1,0 +1,1042 @@
+// Alloy journal shipper: homelab journald -> Grafana Cloud Loki.
+//
+// One loki.source.journal reads the local journal; static relabel rules
+// attach the homelab stack to every managed line:
+//
+// - container stdout/stderr: _SYSTEMD_USER_UNIT (user scope, pure app output)
+// - native service output:   _SYSTEMD_UNIT (system scope)
+// - start/stop lifecycle:    UNIT (_SYSTEMD_UNIT is init.scope there)
+//
+// Non-homelab journal noise is dropped, secrets are redacted, and only the
+// queryable label set ships to Grafana Cloud.
+//
+// Credentials arrive as environment from the Quadlet EnvironmentFile
+// assembled from the scoped broker's runtime credential fields; never committed here.
+
+logging {
+	level  = "info"
+	format = "logfmt"
+}
+
+loki.relabel "homelab" {
+	forward_to = []
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^alloy.service$"
+		target_label  = "stack"
+		replacement   = "alloy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^authelia.service$"
+		target_label  = "stack"
+		replacement   = "authelia"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^backrest.service$"
+		target_label  = "stack"
+		replacement   = "backrest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^nginx.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^opencloud.service$"
+		target_label  = "stack"
+		replacement   = "opencloud"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^termix.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^cloudflared.service$"
+		target_label  = "stack"
+		replacement   = "cloudflared"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^esphome.service$"
+		target_label  = "stack"
+		replacement   = "esphome"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homeassistant.service$"
+		target_label  = "stack"
+		replacement   = "homeassistant"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^jellyfin.service$"
+		target_label  = "stack"
+		replacement   = "jellyfin"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^kavita.service$"
+		target_label  = "stack"
+		replacement   = "kavita"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^readeck.service$"
+		target_label  = "stack"
+		replacement   = "readeck"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^silverbullet.service$"
+		target_label  = "stack"
+		replacement   = "silverbullet"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^speedtest.service$"
+		target_label  = "stack"
+		replacement   = "speedtest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^immich-database.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^immich-redis.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^immich-server.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^immich-microservices.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^immich-machine-learning.service$"
+		target_label  = "stack"
+		replacement   = "immich-ml"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^transmission.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^transmission-gluetun.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^tree-eclass.service$"
+		target_label  = "stack"
+		replacement   = "tree-eclass"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^tree-eclass-dev.service$"
+		target_label  = "stack"
+		replacement   = "tree-eclass"
+	}
+
+	// Stack map, three scopes per unit. Container lines match on
+	// __journal__systemd_user_unit, native output on __journal__systemd_unit,
+	// lifecycle lines on __journal_unit.
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^authelia\\.service$"
+		target_label  = "stack"
+		replacement   = "authelia"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^authelia\\.service$"
+		target_label  = "stack"
+		replacement   = "authelia"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^authelia\\.service$"
+		target_label  = "stack"
+		replacement   = "authelia"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^backrest\\.service$"
+		target_label  = "stack"
+		replacement   = "backrest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^backrest\\.service$"
+		target_label  = "stack"
+		replacement   = "backrest"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^backrest\\.service$"
+		target_label  = "stack"
+		replacement   = "backrest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-calibre-web-calibre-web\\.service$"
+		target_label  = "stack"
+		replacement   = "calibre-web"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-calibre-web-calibre-web\\.service$"
+		target_label  = "stack"
+		replacement   = "calibre-web"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-calibre-web-calibre-web\\.service$"
+		target_label  = "stack"
+		replacement   = "calibre-web"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-homeassistant-esphome\\.service$"
+		target_label  = "stack"
+		replacement   = "esphome"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-homeassistant-esphome\\.service$"
+		target_label  = "stack"
+		replacement   = "esphome"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-homeassistant-esphome\\.service$"
+		target_label  = "stack"
+		replacement   = "esphome"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-forgejo\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-forgejo\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-forgejo\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-forgejo-postgres\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo-postgres"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-forgejo-postgres\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo-postgres"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-forgejo-postgres\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo-postgres"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-homeassistant-homeassistant\\.service$"
+		target_label  = "stack"
+		replacement   = "homeassistant"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-homeassistant-homeassistant\\.service$"
+		target_label  = "stack"
+		replacement   = "homeassistant"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-homeassistant-homeassistant\\.service$"
+		target_label  = "stack"
+		replacement   = "homeassistant"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-immich-database\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-immich-database\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-immich-database\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-immich-microservices\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-immich-microservices\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-immich-microservices\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-immich-redis\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-immich-redis\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-immich-redis\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-immich-server\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-immich-server\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-immich-server\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-immich-machine-learning\\.service$"
+		target_label  = "stack"
+		replacement   = "immich-ml"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-immich-machine-learning\\.service$"
+		target_label  = "stack"
+		replacement   = "immich-ml"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-immich-machine-learning\\.service$"
+		target_label  = "stack"
+		replacement   = "immich-ml"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-jellyfin-jellyfin\\.service$"
+		target_label  = "stack"
+		replacement   = "jellyfin"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-jellyfin-jellyfin\\.service$"
+		target_label  = "stack"
+		replacement   = "jellyfin"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-jellyfin-jellyfin\\.service$"
+		target_label  = "stack"
+		replacement   = "jellyfin"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-nginx-ingress-http\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-nginx-ingress-http\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-nginx-ingress-http\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-nginx-ingress-http\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-nginx-ingress-http\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-nginx-ingress-http\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-nginx-ingress-https\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-nginx-ingress-https\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-nginx-ingress-https\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-nginx-ingress-https\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-nginx-ingress-https\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-nginx-ingress-https\\.socket$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^nginx\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^nginx\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^nginx\\.service$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-readeck-readeck\\.service$"
+		target_label  = "stack"
+		replacement   = "readeck"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-readeck-readeck\\.service$"
+		target_label  = "stack"
+		replacement   = "readeck"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-readeck-readeck\\.service$"
+		target_label  = "stack"
+		replacement   = "readeck"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^opencloud\\.service$"
+		target_label  = "stack"
+		replacement   = "opencloud"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^opencloud\\.service$"
+		target_label  = "stack"
+		replacement   = "opencloud"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^opencloud\\.service$"
+		target_label  = "stack"
+		replacement   = "opencloud"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-siyuan-siyuan\\.service$"
+		target_label  = "stack"
+		replacement   = "siyuan"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-siyuan-siyuan\\.service$"
+		target_label  = "stack"
+		replacement   = "siyuan"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-siyuan-siyuan\\.service$"
+		target_label  = "stack"
+		replacement   = "siyuan"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-speedtest-speedtest\\.service$"
+		target_label  = "stack"
+		replacement   = "speedtest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-speedtest-speedtest\\.service$"
+		target_label  = "stack"
+		replacement   = "speedtest"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-speedtest-speedtest\\.service$"
+		target_label  = "stack"
+		replacement   = "speedtest"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-stash-stash\\.service$"
+		target_label  = "stack"
+		replacement   = "stash"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-stash-stash\\.service$"
+		target_label  = "stack"
+		replacement   = "stash"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-stash-stash\\.service$"
+		target_label  = "stack"
+		replacement   = "stash"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-termix-termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-termix-termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-termix-termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-transmission-gluetun\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-transmission-gluetun\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-transmission-gluetun\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-transmission-transmission\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-transmission-transmission\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-transmission-transmission\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-transmission-web\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-transmission-web\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-transmission-web\\.service$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^homelab-transmission-web\\.socket$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^homelab-transmission-web\\.socket$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^homelab-transmission-web\\.socket$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^alloy\\.service$"
+		target_label  = "stack"
+		replacement   = "alloy"
+	}
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^alloy\\.service$"
+		target_label  = "stack"
+		replacement   = "alloy"
+	}
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^alloy\\.service$"
+		target_label  = "stack"
+		replacement   = "alloy"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^backrest\\.service$;.*;.*|.*;^backrest\\.service$;.*|.*;.*;^backrest\\.service$"
+		target_label  = "stack"
+		replacement   = "backrest"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-calibre-web-calibre-web\\.service$;.*;.*|.*;^homelab-calibre-web-calibre-web\\.service$;.*|.*;.*;^homelab-calibre-web-calibre-web\\.service$"
+		target_label  = "stack"
+		replacement   = "calibre-web"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-homeassistant-esphome\\.service$;.*;.*|.*;^homelab-homeassistant-esphome\\.service$;.*|.*;.*;^homelab-homeassistant-esphome\\.service$"
+		target_label  = "stack"
+		replacement   = "esphome"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-forgejo\\.service$;.*;.*|.*;^homelab-forgejo\\.service$;.*|.*;.*;^homelab-forgejo\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-forgejo-postgres\\.service$;.*;.*|.*;^homelab-forgejo-postgres\\.service$;.*|.*;.*;^homelab-forgejo-postgres\\.service$"
+		target_label  = "stack"
+		replacement   = "forgejo-postgres"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-homeassistant-homeassistant\\.service$;.*;.*|.*;^homelab-homeassistant-homeassistant\\.service$;.*|.*;.*;^homelab-homeassistant-homeassistant\\.service$"
+		target_label  = "stack"
+		replacement   = "homeassistant"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-immich-(database|redis|server|microservices)\\.service$;.*;.*|.*;^homelab-immich-(database|redis|server|microservices)\\.service$;.*|.*;.*;^homelab-immich-(database|redis|server|microservices)\\.service$"
+		target_label  = "stack"
+		replacement   = "immich"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-immich-machine-learning\\.service$;.*;.*|.*;^homelab-immich-machine-learning\\.service$;.*|.*;.*;^homelab-immich-machine-learning\\.service$"
+		target_label  = "stack"
+		replacement   = "immich-ml"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-jellyfin-jellyfin\\.service$;.*;.*|.*;^homelab-jellyfin-jellyfin\\.service$;.*|.*;.*;^homelab-jellyfin-jellyfin\\.service$"
+		target_label  = "stack"
+		replacement   = "jellyfin"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-nginx-(proxy-nginx-proxy|ingress-http|ingress-https)\\.(service|socket)$;.*;.*|.*;^homelab-nginx-(proxy-nginx-proxy|ingress-http|ingress-https)\\.(service|socket)$;.*|.*;.*;^homelab-nginx-(proxy-nginx-proxy|ingress-http|ingress-https)\\.(service|socket)$"
+		target_label  = "stack"
+		replacement   = "nginx-proxy"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-readeck-readeck\\.service$;.*;.*|.*;^homelab-readeck-readeck\\.service$;.*|.*;.*;^homelab-readeck-readeck\\.service$"
+		target_label  = "stack"
+		replacement   = "readeck"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^opencloud\\.service$;.*;.*|.*;^opencloud\\.service$;.*|.*;.*;^opencloud\\.service$"
+		target_label  = "stack"
+		replacement   = "opencloud"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-siyuan-siyuan\\.service$;.*;.*|.*;^homelab-siyuan-siyuan\\.service$;.*|.*;.*;^homelab-siyuan-siyuan\\.service$"
+		target_label  = "stack"
+		replacement   = "siyuan"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-speedtest-speedtest\\.service$;.*;.*|.*;^homelab-speedtest-speedtest\\.service$;.*|.*;.*;^homelab-speedtest-speedtest\\.service$"
+		target_label  = "stack"
+		replacement   = "speedtest"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-stash-stash\\.service$;.*;.*|.*;^homelab-stash-stash\\.service$;.*|.*;.*;^homelab-stash-stash\\.service$"
+		target_label  = "stack"
+		replacement   = "stash"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-termix-termix\\.service$;.*;.*|.*;^homelab-termix-termix\\.service$;.*|.*;.*;^homelab-termix-termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^termix\\.service$;.*;.*|.*;^termix\\.service$;.*|.*;.*;^termix\\.service$"
+		target_label  = "stack"
+		replacement   = "termix"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_user_unit", "__journal__systemd_unit", "__journal__unit"]
+		regex         = "^homelab-transmission-(gluetun|transmission|web)\\.(service|socket)$;.*;.*|.*;^homelab-transmission-(gluetun|transmission|web)\\.(service|socket)$;.*|.*;.*;^homelab-transmission-(gluetun|transmission|web)\\.(service|socket)$"
+		target_label  = "stack"
+		replacement   = "transmission"
+	}
+
+	// Container stdout/stderr: pure application output in every scope.
+	rule {
+		source_labels = ["__journal__container_name"]
+		target_label  = "container"
+	}
+
+	// Prefer the supervisor/user unit name; fall back to lifecycle UNIT.
+	rule {
+		source_labels = ["__journal__systemd_user_unit"]
+		regex         = "^(homelab-.+\\.service)$"
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		regex         = "^(homelab-.+\\.service)$"
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal__unit"]
+		regex         = "^(homelab-.+\\.(service|socket))$"
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal__priority_keyword"]
+		target_label  = "level"
+	}
+
+	rule {
+		source_labels = ["__journal__hostname"]
+		target_label  = "nodename"
+	}
+
+	rule {
+		source_labels = ["__journal__transport"]
+		target_label  = "transport"
+	}
+}
+
+loki.source.journal "homelab" {
+	relabel_rules = loki.relabel.homelab.rules
+	forward_to    = [loki.process.homelab.receiver]
+	labels        = {job = "homelab"}
+	max_age       = "12h"
+	path          = "/var/log/journal"
+}
+
+loki.process "homelab" {
+	forward_to = [loki.write.grafana_cloud.receiver]
+
+	// Keep only homelab-managed entries; the host journal is full of
+	// unrelated systemd noise that would burn Cloud ingest.
+	stage.match {
+		selector            = "{stack=\"\"}"
+		action              = "drop"
+		drop_counter_reason = "non_homelab"
+	}
+
+	// Redact secret-bearing values before egress.
+	stage.replace {
+		expression = "(?i)(password|passwd|secret|api[_-]?key|token|bearer)\\s*[:=]\\s*\\S+"
+		replace    = "$1=[REDACTED]"
+	}
+
+	stage.replace {
+		expression = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+		replace    = "[REDACTED-EMAIL]"
+	}
+
+	// Keep only the queryable label set; everything else rides in the line.
+	stage.label_keep {
+		values = ["job", "nodename", "stack", "unit", "container", "level", "transport"]
+	}
+}
+
+loki.write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_API_KEY")
+		}
+	}
+}
+
+// Host metrics use embedded exporters; each app account collects only its
+// own rootless runtime/cgroup into its separately owned textfile directory.
+// Host /proc, /sys, / and journal are mounted read-only (see alloy.container
+// Volumes); node_exporter reads them through rootfs/procfs/sysfs prefixes.
+// No host ports, no bridge IPs, no port forwards: nothing to bind, nothing
+// exposed to the LAN. SMART stays on the NixOS smartctl exporter (needs real
+// device ioctls the container cannot do); the dedicated metrics account
+// bridges it into its own textfile directory. Alloy mounts all directories
+// read-only, without any other account's runtime socket or user bus.
+// Cardinality guards keep the Cloud free-tier 10k series budget safe.
+
+// --- embedded exporters (host data via ro mounts) ---
+prometheus.exporter.unix "host" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+  set_collectors = ["cpu", "meminfo", "filesystem", "netdev", "diskstats",
+    "loadavg", "pressure", "hwmon", "time", "textfile"]
+  textfile {
+    directory = "/quadlet-textfiles/*"
+  }
+}
+
+prometheus.exporter.process "stacks" {
+  procfs_path        = "/host/proc"
+  track_children    = false
+
+  matcher {
+    name    = "{{.ExeBase}}"
+    exe     = ["alloy", "backrest", "authelia", "jellyfin", "opencloud", "termix", "kavita", "readeck", "silverbullet", "speedtest", "esphome", "postgres", "valkey-server", "redis-server", "nginx", "cloudflared", "transmission-daemon", "gluetun", "immich", "python3", "python", "node", "java"]
+  }
+}
+
+// --- scrape jobs ---
+prometheus.scrape "node" {
+  targets    = prometheus.exporter.unix.host.targets
+  forward_to = [prometheus.relabel.node.receiver]
+  scrape_interval = "30s"
+}
+
+prometheus.scrape "process" {
+  targets    = prometheus.exporter.process.stacks.targets
+  forward_to = [prometheus.relabel.process.receiver]
+  scrape_interval = "30s"
+}
+
+// Per-quadlet cgroup metrics: scraped from the host textfile dir mounted
+// read-only into the container (see alloy.container Volume).
+
+
+// --- cardinality guards ---
+prometheus.relabel "node" {
+  forward_to = [prometheus.remote_write.cloud.receiver]
+
+  // Tag every series so the dashboard's {job="homelab"} queries match.
+  // Pin instance to the stable host name: Alloy's container ID changes on
+  // every redeploy, which would otherwise triple every series in Cloud.
+  rule {
+    target_label = "instance"
+    replacement  = "@metrics-instance@"
+  }
+  rule {
+    target_label = "job"
+    replacement  = "homelab"
+  }
+  rule {
+    source_labels = ["__name__"]
+    regex         = "(node_cpu_seconds_total|node_memory_MemTotal_bytes|node_memory_MemAvailable_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_network_receive_bytes_total|node_network_transmit_bytes_total|node_network_receive_errs_total|node_network_transmit_errs_total|node_network_receive_drop_total|node_network_transmit_drop_total|node_disk_read_bytes_total|node_disk_write_bytes_total|node_disk_io_time_seconds_total|node_load1|node_load5|node_load15|node_pressure_cpu_waiting_seconds_total|node_pressure_io_waiting_seconds_total|node_pressure_memory_waiting_seconds_total|node_boot_time_seconds|node_hwmon_temp_celsius|node_systemd_unit_state|node_systemd_service_restart_total|homelab_quadlet_.*|homelab_drive_.*)"
+    action        = "keep"
+  }
+  // Drop high-cardinality labels the dashboard never queries.
+  rule {
+    regex  = "uuid|serial|path|mountpoint|fstype|version|revision"
+    action = "labeldrop"
+  }
+}
+
+prometheus.relabel "process" {
+  forward_to = [prometheus.remote_write.cloud.receiver]
+  rule {
+    target_label = "instance"
+    replacement  = "@metrics-instance@"
+  }
+  rule {
+    target_label = "job"
+    replacement  = "homelab"
+  }
+  // The dashboard groups by stack; process group name IS the stack here.
+  rule {
+    source_labels = ["groupname"]
+    target_label  = "stack"
+  }
+  rule {
+    source_labels = ["__name__"]
+    regex         = "namedprocess_namegroup_(cpu_seconds_total|memory_bytes|read_bytes_total|write_bytes_total|num_procs|num_threads|states|oldest_start_time_seconds)"
+    action        = "keep"
+  }
+}
+
+prometheus.relabel "smartctl" {
+  forward_to = [prometheus.remote_write.cloud.receiver]
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "smartctl_device_(temperature|available_spare|percentage_used|smart_status|media_errors|power_on_seconds|power_cycle_count|critical_warning|error_log_count)"
+    action        = "keep"
+  }
+  rule {
+    regex  = "model|serial|firmware|smartctl_version"
+    action = "labeldrop"
+  }
+}
+
+prometheus.remote_write "cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROM_USER")
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}

@@ -1,0 +1,48 @@
+[Unit]
+Description=Jellyfin media server with CPU transcode
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=jellyfin
+# The 12 line feed track forbids the floating 12 tag: it follows
+# datestamped unstable builds, which are majors, not patches.
+Image=@image:jellyfin@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=apps-net.network
+IP=@proxy-address@
+PublishPort=127.0.0.1:@port-jellyfin@:8096
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
+Volume=@state-root@/jellyfin/config:/config:rw
+Volume=@state-root@/jellyfin/cache:/cache:rw
+Volume=@media-path@:/raid:ro
+Volume=%t/homelab-jellyfin/ssl-ca-bundle.pem:/config/ssl-ca-bundle.pem:ro
+Environment=SSL_CERT_FILE=/config/ssl-ca-bundle.pem
+Environment=JELLYFIN_PublishedServerUrl=https://movies.@lan-domain@
+AddHost=host.containers.internal:host-gateway
+NoNewPrivileges=true
+HealthCmd=curl --fail --silent --show-error --max-time 5 --output /dev/null http://127.0.0.1:8096/health
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=180s
+
+[Service]
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=1638M
+MemoryMax=2G
+
+[Install]
+WantedBy=homelab.target

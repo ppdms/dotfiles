@@ -1,0 +1,41 @@
+[Unit]
+Description=Homelab LibreSpeed canary UI (stateless)
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=speedtest
+Image=@image:speedtest@
+User=33:33
+UserNS=keep-id:uid=33,gid=33
+Pull=never
+Tmpfs=/run/apache2:exec,mode=1777
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-speedtest@:80
+Environment=MODE=standalone
+Environment=WEBPORT=80
+# Unprivileged bind scoped to this private netns: no host sysctl or capability.
+Sysctl=net.ipv4.ip_unprivileged_port_start=80
+NoNewPrivileges=true
+DropCapability=all
+HealthCmd=curl --fail --silent --show-error --max-time 5 --output /dev/null http://127.0.0.1:80/
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=10s
+
+[Service]
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=410M
+MemoryMax=512M
+
+[Install]
+WantedBy=homelab.target

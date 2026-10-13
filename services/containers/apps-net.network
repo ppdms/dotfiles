@@ -1,0 +1,14 @@
+[Unit]
+Description=Private account-local application network
+PartOf=homelab.target
+
+[Network]
+NetworkName=apps-net
+Driver=bridge
+NetworkDeleteOnStop=true
+Subnet=@apps-subnet@
+DisableDNS=false
+# Separate rootless runtimes never share this bridge or its DNS aliases.
+# Immich's tightly coupled family uses local DB/cache/ML aliases here.
+Options=isolate=true
+Options=metric=100

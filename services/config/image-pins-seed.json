@@ -1,0 +1,100 @@
+{
+  "images": {
+    "alloy": {
+      "reference": "docker.io/grafana/alloy@sha256:afef2d9439b53afd78e79417c4f805aee87006ea5567799ecb3ec4c80ec33eb4",
+      "version": "1.9.2"
+    },
+    "authelia": {
+      "reference": "docker.io/authelia/authelia@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54",
+      "version": "4.39.28"
+    },
+    "backrest": {
+      "reference": "docker.io/garethgeorge/backrest@sha256:f4d34bd6fa985d13bdb6c01c5d8727e07708899afa9567d800808357d77b9fb0",
+      "version": "1.12.1"
+    },
+    "cloudflared": {
+      "reference": "docker.io/cloudflare/cloudflared:2026.5.2@sha256:12ff5c6992a9863db4da270746af7c244bcaee49353039af8104268a18d6c4f0",
+      "version": "2026.5.2"
+    },
+    "esphome": {
+      "reference": "ghcr.io/esphome/esphome@sha256:f6509fcf917a732fd80058567b237d5b9286b9dc6c8dde1b655fbb69ebd600ad",
+      "version": "2026.9.0"
+    },
+    "transmission-gluetun": {
+      "unreleased_baseline": true,
+      "reference": "docker.io/qmcgaw/gluetun@sha256:5b012727f7cc792acdcc0ca6ddbdb151daac535087eb5585e5ba4a692ccaf11c",
+      "version": "3.41.3"
+    },
+    "homeassistant": {
+      "reference": "ghcr.io/home-assistant/home-assistant@sha256:372d991e58882a1d8c68c07e9aa3f3b509276e695355f73ccdb03baa70407293",
+      "version": "2026.9.0"
+    },
+    "immich-database": {
+      "reference": "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23",
+      "version": "14"
+    },
+    "immich-machine-learning": {
+      "reference": "ghcr.io/immich-app/immich-machine-learning@sha256:60dfcf266a9ef3b7376f5678e8c980d4fb61db5fc48c078fe8a326ab1535d60d",
+      "version": "3.2.2"
+    },
+    "immich-redis": {
+      "reference": "docker.io/valkey/valkey:9@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd",
+      "version": "9.1.2"
+    },
+    "immich-server": {
+      "reference": "ghcr.io/immich-app/immich-server:v3.2.2@sha256:79cc1623323d5894922686d8743b4780181428f98eecbfb58ce12c41ef02d1ea",
+      "version": "3.2.2"
+    },
+    "jellyfin": {
+      "reference": "docker.io/jellyfin/jellyfin:12.1@sha256:78d3ea1207d1322471fcac39a614f004f2ccf7e878f95ab2977d752f07e4dd7e",
+      "version": "12.1"
+    },
+    "kavita": {
+      "order": [
+        0,
+        9,
+        1,
+        4,
+        126
+      ],
+      "reference": "ghcr.io/linuxserver/kavita@sha256:6c5dc34fe5a0d8615d530aa24f550cbbf9304ab4b352f7f9fa6133510b93e6bf",
+      "version": "0.9.1.4"
+    },
+    "nginx": {
+      "reference": "docker.io/library/nginx@sha256:abe47724e466aeab9a345d8e46a221c2fa8953c7848bb4a3bd9976a7199f8cf2",
+      "version": "1.31.6"
+    },
+    "opencloud": {
+      "reference": "docker.io/opencloudeu/opencloud:7.2.4@sha256:6d992ccc5f1cbc7b2a9b272ba25f879b1b159c2d7ed7f5527e09059f16295697",
+      "version": "7.2.4"
+    },
+    "readeck": {
+      "reference": "codeberg.org/readeck/readeck@sha256:fc34b2e9bc766422a4265dc253d1a3e95e0608ee08e86c7e3dda8773ec906fdc",
+      "version": "0.23.4"
+    },
+    "silverbullet": {
+      "reference": "ghcr.io/silverbulletmd/silverbullet:2.11.1@sha256:e36808c27717e6c1d97e2421d6da263a16f273db91768bec2c227f28a9759086",
+      "version": "2.11.1"
+    },
+    "speedtest": {
+      "unreleased_baseline": true,
+      "reference": "ghcr.io/librespeed/speedtest@sha256:431062ce955c5e9b3eda5034ab09cce3daff7608c3bcfacdf17f49fa6f5f8cf0",
+      "version": "6.3.0"
+    },
+    "termix": {
+      "reference": "ghcr.io/lukegus/termix@sha256:25e8a0eb39f45c9ac5e8e7615fd84a0380018ea012317bc665b86458d900b4b9",
+      "version": "2.8.0"
+    },
+    "transmission": {
+      "order": [
+        4,
+        1,
+        3,
+        362
+      ],
+      "reference": "ghcr.io/linuxserver/transmission@sha256:4e429c4fb4227af3dbc16afcaaa2ec58a43e8c4a257bac30899873a6a05a1873",
+      "version": "4.1.3"
+    }
+  },
+  "schema": 1
+}

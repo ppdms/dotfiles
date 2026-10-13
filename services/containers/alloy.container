@@ -1,0 +1,45 @@
+[Unit]
+Description=Homelab Alloy journal shipper to Grafana Cloud
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=alloy
+Image=@image:alloy@
+Pull=never
+User=473:473
+GroupAdd=keep-groups
+UserNS=keep-id:uid=473,gid=473
+Network=apps-net.network
+PublishPort=127.0.0.1:@port-alloy@:12345
+Exec=run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+Volume=@alloy-config@/config.alloy:/etc/alloy/config.alloy:ro
+Volume=alloy-data.volume:/var/lib/alloy/data:rw
+Volume=@metrics-directory@:/quadlet-textfiles:ro
+Volume=/proc:/host/proc:ro
+Volume=/sys:/host/sys:ro
+Volume=/:/host/root:ro
+Volume=/var/log/journal:/var/log/journal:ro
+Volume=%t/homelab-secrets/alloy:/run/secrets:ro
+EnvironmentFile=%t/homelab-secrets/alloy/alloy.env
+Environment=TZ=UTC
+NoNewPrivileges=true
+DropCapability=all
+
+[Service]
+ExecStartPre=@secret-helper@ prepare alloy
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=512
+MemoryHigh=410M
+MemoryMax=512M
+
+[Install]
+WantedBy=homelab.target

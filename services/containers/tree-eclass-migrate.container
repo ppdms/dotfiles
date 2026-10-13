@@ -1,0 +1,24 @@
+[Unit]
+Description=Tree-eclass one-shot database migration (sqlite ledger)
+
+[Container]
+ContainerName=tree-eclass-migrate
+Image=localhost/tree-eclass:stable
+User=10001:10001
+UserNS=keep-id:uid=10001,gid=10001
+Pull=never
+Network=none
+Environment=TREE_RUNTIME_CONFIG=/run/tree-eclass/application.json
+Environment=GOMEMLIMIT=192MiB
+Volume=@state-root@/tree-eclass/jobs:/jobs:rw
+Volume=@state-root@/tree-eclass/objects:/data/objects:rw
+Volume=@state-root@/tree-eclass/jobs/application.json:/run/tree-eclass/application.json:ro
+Exec=container-migrate
+
+[Service]
+Type=oneshot
+ExecStartPre=@secret-helper@ prepare tree-eclass
+ExecStartPre=@state-helper@
+TimeoutStartSec=600s
+UMask=0077
+RemainAfterExit=yes

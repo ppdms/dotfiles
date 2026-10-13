@@ -1,0 +1,44 @@
+[Unit]
+Description=Immich PostgreSQL with VectorChord
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=immich_postgres
+Image=@image:immich-database@
+User=999:999
+UserNS=keep-id:uid=999,gid=999
+Pull=never
+Network=apps-net.network
+NetworkAlias=immich-postgres
+Volume=immich-postgres-data:/var/lib/postgresql/data:rw
+ShmSize=128m
+Environment=POSTGRES_INITDB_ARGS=--data-checksums
+Environment=DB_STORAGE_TYPE=SSD
+Environment=POSTGRES_USER=postgres
+Environment=POSTGRES_DB=immich
+EnvironmentFile=%t/homelab-secrets/immich/immich.env
+StopTimeout=120
+HealthCmd=pg_isready -U postgres -d immich
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=30s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare immich
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=180s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=1024
+MemoryHigh=2458M
+MemoryMax=3G
+
+[Install]
+WantedBy=homelab.target

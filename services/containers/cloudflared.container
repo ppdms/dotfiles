@@ -1,0 +1,38 @@
+[Unit]
+Description=Cloudflare tunnel connector for remote access
+PartOf=homelab.target
+Requires=apps-net-network.service
+After=apps-net-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=cloudflared
+Image=@image:cloudflared@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=apps-net.network
+GroupAdd=keep-groups
+# Outbound-only: dials the Athens tunnel edge, serves no ports.
+# The host shared origin group grants connect-only access to nginx's socket.
+Volume=@origin-directory@:/run/homelab-cloudflared-origin:ro
+Environment=TZ=UTC
+Volume=%t/homelab-secrets/cloudflared:/run/secrets:ro
+Exec=tunnel --no-autoupdate run --token-file /run/secrets/tunnel-token
+NoNewPrivileges=true
+DropCapability=all
+
+[Service]
+ExecStartPre=@secret-helper@ prepare cloudflared
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=120s
+TimeoutStopSec=60s
+UMask=0077
+TasksMax=256
+MemoryHigh=256M
+MemoryMax=512M
+
+[Install]
+WantedBy=homelab.target

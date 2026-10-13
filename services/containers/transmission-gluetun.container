@@ -1,0 +1,58 @@
+[Unit]
+Description=Transmission WireGuard tunnel (gluetun)
+PartOf=homelab.target
+Requires=transmission-network.service
+After=transmission-network.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+ContainerName=TransmissionVPN-Gluetun
+Image=@image:transmission-gluetun@
+User=1000:1000
+UserNS=keep-id:uid=1000,gid=1000
+Pull=never
+Network=transmission.network:ip=@vpn-address@
+Volume=@state-root@/transmission/protonvpn:/tmp/gluetun:rw
+Volume=@state-root@/transmission/protonvpn/resolv.conf:/etc/resolv.conf:rw
+Environment=VPN_SERVICE_PROVIDER=protonvpn
+Environment=VPN_TYPE=wireguard
+Environment=DNS_SERVER=off
+Environment=DNS_UPSTREAM_RESOLVER_TYPE=plain
+Environment=DNS_UPSTREAM_PLAIN_ADDRESSES=@vpn-dns@:53
+Environment=STORAGE_SERVERS_DIRECTORY_PATH=/tmp/gluetun/servers/
+Environment=SERVER_COUNTRIES=@vpn-countries@
+Environment=PORT_FORWARD_ONLY=on
+# Only the local loopback publish exposes the WebUI through this namespace.
+# Allow 9091 ingress while retaining the tunnel's egress kill-switch.
+Environment=FIREWALL_INPUT_PORTS=9091
+# WIREGUARD_PRIVATE_KEY arrives via EnvironmentFile assembled from the
+# credential broker by the state helper (gluetun reads env, not *_FILE).
+EnvironmentFile=%t/homelab-secrets/transmission/gluetun.env
+PublishPort=127.0.0.1:@port-transmission@:9091
+# Owns the tunnel netns and its kill-switch firewall: needs NET_ADMIN here.
+# Scoped to the container userns/netns (rootless keep-id), so it cannot
+# touch host interfaces. NoNewPrivileges stays on: it blocks setuid
+# escalation without dropping the granted cap.
+AddCapability=NET_ADMIN
+NoNewPrivileges=true
+HealthCmd=/gluetun-entrypoint healthcheck
+HealthInterval=30s
+HealthTimeout=15s
+HealthRetries=3
+HealthStartPeriod=60s
+
+[Service]
+ExecStartPre=@secret-helper@ prepare transmission
+ExecStartPre=@state-helper@
+Restart=on-failure
+RestartSec=15s
+TimeoutStartSec=300s
+TimeoutStopSec=120s
+UMask=0077
+TasksMax=256
+MemoryHigh=256M
+MemoryMax=512M
+
+[Install]
+WantedBy=homelab.target

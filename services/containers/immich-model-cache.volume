@@ -1,0 +1,5 @@
+[Unit]
+Description=Immich model cache
+
+[Volume]
+VolumeName=immich_model-cache

@@ -1,0 +1,29 @@
+modelRoles:
+  web: google-antigravity/gemini-3.8-flash-high
+  task: openai-codex/gpt-6.1-sol:xhigh
+  default: openai-codex/gpt-6.1-sol:high
+symbolPreset: nerd
+theme:
+  dark: titanium
+setupVersion: 2
+edit:
+  mode: apply_patch
+composer:
+  shape: claude
+dev:
+  autoqaConsent: denied
+git:
+  enabled: false
+display:
+  showTokenUsage: true
+  cacheMissMarker: true
+statusLine:
+  preset: full
+  separator: powerline-thin
+extendedContext: false
+retry:
+  fallbackChains:
+    web:
+      - google-antigravity/gemini-3.8-flash-high
+claudeResets:
+  autoRedeem: "no"

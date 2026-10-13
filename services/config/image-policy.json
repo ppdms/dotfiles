@@ -1,0 +1,89 @@
+{
+  "images": {
+    "alloy": {
+      "repository": "docker.io/grafana/alloy",
+      "tag_pattern": "v(?P<version>1\\.\\d+\\.\\d+)"
+    },
+    "authelia": {
+      "repository": "docker.io/authelia/authelia",
+      "tag_pattern": "(?P<version>4\\.39\\.\\d+)"
+    },
+    "backrest": {
+      "repository": "docker.io/garethgeorge/backrest",
+      "tag_pattern": "v(?P<version>1\\.\\d+\\.\\d+)"
+    },
+    "cloudflared": {
+      "repository": "docker.io/cloudflare/cloudflared",
+      "tag_pattern": "(?P<version>2026\\.\\d+\\.\\d+)"
+    },
+    "esphome": {
+      "repository": "ghcr.io/esphome/esphome",
+      "tag_pattern": "(?P<version>2026\\.9\\.\\d+)"
+    },
+    "transmission-gluetun": {
+      "repository": "docker.io/qmcgaw/gluetun",
+      "tag_pattern": "v(?P<version>3\\.\\d+(\\.\\d+)?)"
+    },
+    "homeassistant": {
+      "repository": "ghcr.io/home-assistant/home-assistant",
+      "tag_pattern": "(?P<version>2026\\.9\\.\\d+)"
+    },
+    "immich-database": {
+      "repository": "ghcr.io/immich-app/postgres",
+      "tag_pattern": "(?P<version>14)-vectorchord0\\.4\\.3-pgvectors0\\.2\\.0"
+    },
+    "immich-machine-learning": {
+      "group": "immich",
+      "repository": "ghcr.io/immich-app/immich-machine-learning",
+      "release_repository": "immich-app/immich",
+      "tag_pattern": "v(?P<version>3\\.\\d+\\.\\d+)"
+    },
+    "immich-redis": {
+      "repository": "docker.io/valkey/valkey",
+      "tag_pattern": "(?P<version>9\\.\\d+(\\.\\d+)?)"
+    },
+    "immich-server": {
+      "group": "immich",
+      "repository": "ghcr.io/immich-app/immich-server",
+      "release_repository": "immich-app/immich",
+      "tag_pattern": "v(?P<version>3\\.\\d+\\.\\d+)"
+    },
+    "jellyfin": {
+      "repository": "docker.io/jellyfin/jellyfin",
+      "tag_pattern": "(?P<version>12\\.\\d+)"
+    },
+    "kavita": {
+      "repository": "ghcr.io/linuxserver/kavita",
+      "tag_pattern": "v(?P<version>0\\.9\\.\\d+\\.\\d+)-ls(?P<build>\\d+)"
+    },
+    "nginx": {
+      "repository": "docker.io/library/nginx",
+      "tag_pattern": "(?P<version>1\\.31\\.\\d+)"
+    },
+    "opencloud": {
+      "repository": "docker.io/opencloudeu/opencloud",
+      "tag_pattern": "(?P<version>7\\.\\d+\\.\\d+)"
+    },
+    "readeck": {
+      "repository": "codeberg.org/readeck/readeck",
+      "tag_pattern": "(?P<version>0\\.23\\.\\d+)"
+    },
+    "silverbullet": {
+      "repository": "ghcr.io/silverbulletmd/silverbullet",
+      "tag_pattern": "(?P<version>2\\.\\d+\\.\\d+)"
+    },
+    "speedtest": {
+      "repository": "ghcr.io/librespeed/speedtest",
+      "tag_pattern": "(?P<version>6\\.\\d+\\.\\d+)"
+    },
+    "termix": {
+      "repository": "ghcr.io/lukegus/termix",
+      "tag_pattern": "(?P<version>2\\.\\d+\\.\\d+)"
+    },
+    "transmission": {
+      "repository": "ghcr.io/linuxserver/transmission",
+      "tag_pattern": "(?P<version>4\\.\\d+\\.\\d+)-r\\d+-ls(?P<build>\\d+)"
+    }
+  },
+  "schema": 1
+}
