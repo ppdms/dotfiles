@@ -40,12 +40,12 @@ let
     set -eu
     directory="$HOME/.omp/agent"
     ${pkgs.coreutils}/bin/mkdir -p "$directory"
-    temporary="$(${pkgs.coreutils}/bin/mktemp "$directory/.config.yml.XXXXXX")"
+    temporary="$(${pkgs.coreutils}/bin/mktemp "$directory/.omp-install.XXXXXX")"
     trap '${pkgs.coreutils}/bin/rm -f "$temporary"' EXIT
     ${pkgs.coreutils}/bin/install -m 600 "$1" "$temporary"
     # Replace config symlinks without writing through them into a checkout.
     # Models, authentication, and sessions are deliberately not managed.
-    ${pkgs.coreutils}/bin/mv -fT "$temporary" "$directory/config.yml"
+    ${pkgs.coreutils}/bin/mv -fT "$temporary" "$directory/$2"
     trap - EXIT
   '';
 in
@@ -122,9 +122,15 @@ in
 
       home.activation.ompSettings = lib.mkIf (cfg.settings != null) (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          run ${installSettings} ${yaml.generate "omp-config.yml" cfg.settings}
+          run ${installSettings} ${yaml.generate "omp-config.yml" cfg.settings} config.yml
         ''
       );
+
+      # User-wide agent instructions, restored on activation like settings.
+      # Edit programs/omp/AGENTS.md, not the installed copy.
+      home.activation.ompAgents = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run ${installSettings} ${./AGENTS.md} AGENTS.md
+      '';
     })
   ];
 }

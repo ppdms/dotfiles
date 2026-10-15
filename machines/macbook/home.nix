@@ -118,6 +118,7 @@ in
 
   home.packages = with pkgs; [
     photosImport
+    (pkgs.callPackage ../../services/tools/cf.nix { })
     pngpaste
     backrest
     deno

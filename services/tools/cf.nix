@@ -1,39 +1,42 @@
 {
   lib,
-  stdenvNoCC,
-  fetchurl,
+  buildNpmPackage,
   nodejs,
   makeWrapper,
   libsecret,
+  stdenv,
 }:
 
-let
-  minisearch = fetchurl {
-    url = "https://registry.npmjs.org/minisearch/-/minisearch-7.2.0.tgz";
-    hash = "sha256-yzuBJqPqZdazh3hylPB5Kw6kpAtw+PN2iAZqVjjgIYo=";
-  };
-
-in
-stdenvNoCC.mkDerivation {
+# Full npm closure of the `cf` package (cf/package.json + package-lock.json),
+# so `cf dev` / `--local` (miniflare + workerd) work, not just the bundled
+# API commands. Update: bump `cf` in cf/package.json, regenerate the lockfile
+# with `npm install --package-lock-only --prefix services/tools/cf`, then
+# refresh npmDepsHash with `prefetch-npm-deps services/tools/cf/package-lock.json`.
+buildNpmPackage {
   pname = "cloudflare-cf";
-  version = "1.0.0-beta.12";
+  version = "1.0.0-beta.17";
 
-  src = fetchurl {
-    url = "https://registry.npmjs.org/cf/-/cf-1.0.0-beta.12.tgz";
-    hash = "sha256-LGaN+SuptzxQq1uElbwA71HzBk3en/cLPZwCyOTLMHY=";
+  src = lib.fileset.toSource {
+    root = ./cf;
+    fileset = lib.fileset.unions [
+      ./cf/package.json
+      ./cf/package-lock.json
+    ];
   };
+
+  npmDepsHash = "sha256-Lt3zFkfneo6GEjUhyKvgyoyrHJJVHS1Ft6ntyv2Dolc=";
+  dontNpmBuild = true;
 
   nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/lib/cf/node_modules/minisearch" "$out/bin"
-    cp -r bin dist package.json README.md LICENSE-APACHE LICENSE-MIT "$out/lib/cf/"
-    tar xzf ${minisearch} -C "$out/lib/cf/node_modules/minisearch" --strip-components=1
+    mkdir -p "$out/lib/cf" "$out/bin"
+    cp -r node_modules "$out/lib/cf/node_modules"
     makeWrapper ${nodejs}/bin/node "$out/bin/cf" \
-      --prefix PATH : ${lib.makeBinPath [ libsecret ]} \
+      ${lib.optionalString stdenv.hostPlatform.isLinux "--prefix PATH : ${lib.makeBinPath [ libsecret ]}"} \
       --set CLOUDFLARE_AUTH_USE_KEYRING true \
-      --add-flags "$out/lib/cf/bin/cf"
+      --add-flags "$out/lib/cf/node_modules/cf/bin/cf"
     ln -s "$out/bin/cf" "$out/bin/cloudflare"
     runHook postInstall
   '';
@@ -46,6 +49,6 @@ stdenvNoCC.mkDerivation {
       mit
     ];
     mainProgram = "cf";
-    platforms = platforms.linux;
+    platforms = platforms.darwin ++ platforms.linux;
   };
 }

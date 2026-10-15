@@ -92,6 +92,7 @@
         in
         {
           profile = pkgs.callPackage ./tools/profile/package.nix { };
+          cf = pkgs.callPackage ./services/tools/cf.nix { };
         }
         // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
           photos-import = pkgs.callPackage ./programs/photos-import/package.nix { };
@@ -107,7 +108,6 @@
               ./programs/tern/package.nix
               { };
           omp-update = pkgs.callPackage ./programs/omp/update.nix { };
-          cf = pkgs.callPackage ./services/tools/cf.nix { };
           home-manager = home-manager.packages.${system}.default;
         }
       );
