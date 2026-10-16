@@ -12,10 +12,11 @@
 }:
 
 let
-  sources = runCommand "tree-dev-source" {} ''
+  sources = runCommand "tree-dev-source" { } ''
     mkdir -p "$out"
     cp ${./tree-dev.py} "$out/tree-dev.py"
     cp ${./principals.py} "$out/principals.py"
+    cp ${./tree_recovery.py} "$out/tree_recovery.py"
   '';
 in
 writeShellApplication {
@@ -28,10 +29,12 @@ writeShellApplication {
   ];
   text = ''
     export HOMELAB_TREE_CHECKOUT=${lib.escapeShellArg treeCheckout}
+    export HOMELAB_TREE_RECOVERY=/var/lib/homelab/tree-releases
     export HOMELAB_PODMAN=${podman}/bin/podman
     export HOMELAB_CAT=${coreutils}/bin/cat
     export HOMELAB_GIT=${git}/bin/git
     export HOMELAB_SYSTEMCTL=${systemd}/bin/systemctl
+
     export HOMELAB_ENV=${coreutils}/bin/env
     export HOMELAB_SUDO=/run/wrappers/bin/sudo
     export HOMELAB_PYTHON=${python3}/bin/python3

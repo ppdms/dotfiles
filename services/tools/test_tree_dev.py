@@ -55,7 +55,8 @@ class BranchLifecycleTests(unittest.TestCase):
             patch.object(tree, "checkout_root", return_value=self.prod),
             patch.object(tree, "git_rev", return_value="a" * 40),
             patch.object(tree, "active", return_value=False),
-            patch.object(tree, "image_exists", return_value=True),
+            patch.object(tree, "dev_image_rev", return_value="a" * 40),
+            patch.object(tree, "build_image"),
             patch.object(tree, "systemctl", return_value=Mock(returncode=0)),
             patch.object(tree, "run_oneshot", side_effect=tree.DevError("migration failed")),
             patch.object(tree, "clear_tree_route") as route,
@@ -70,6 +71,35 @@ class BranchLifecycleTests(unittest.TestCase):
         self.assertFalse((self.dev / "code").exists())
         self.assertFalse((self.dev / "jobs/sqlite.db").exists())
         self.assertEqual((self.prod / "objects/original").read_bytes(), b"original-object")
+
+    def test_up_rebuilds_stale_dev_image(self):
+        with (
+            patch.object(tree, "checkout_root", return_value=self.prod),
+            patch.object(tree, "git_rev", return_value="b" * 40),
+            patch.object(tree, "active", return_value=False),
+            patch.object(tree, "dev_image_rev", return_value="a" * 40),
+            patch.object(tree, "build_image") as build,
+            patch.object(tree, "run_oneshot"),
+            patch.object(tree, "start_dev_stack"),
+            patch.object(tree, "clear_tree_route"),
+        ):
+            tree.cmd_up(argparse.Namespace())
+            build.assert_called_once_with(self.prod, "dev", "b" * 40)
+        self.assertEqual((self.dev / "rev").read_text().strip(), "b" * 40)
+
+    def test_up_skips_build_when_dev_image_matches_checkout(self):
+        with (
+            patch.object(tree, "checkout_root", return_value=self.prod),
+            patch.object(tree, "git_rev", return_value="b" * 40),
+            patch.object(tree, "active", return_value=False),
+            patch.object(tree, "dev_image_rev", return_value="b" * 40),
+            patch.object(tree, "build_image") as build,
+            patch.object(tree, "run_oneshot"),
+            patch.object(tree, "start_dev_stack"),
+            patch.object(tree, "clear_tree_route"),
+        ):
+            tree.cmd_up(argparse.Namespace())
+            build.assert_not_called()
 
     def test_objects_branch_shares_inodes_and_survives_branch_wipe(self):
         tree.sync_objects(self.prod / "objects", self.dev / "objects")

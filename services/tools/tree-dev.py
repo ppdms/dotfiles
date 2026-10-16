@@ -198,6 +198,22 @@ def image_exists(tag: str) -> bool:
     return result.returncode == 0
 
 
+def dev_image_rev() -> str | None:
+    """Revision baked into :dev, or None when the tag is absent or unlabeled.
+
+    Tag existence is not a freshness signal: a :dev built days ago silently
+    predates the checkout and its embedded migrations then refuse the branched
+    database. Callers rebuild whenever this differs from the checkout HEAD.
+    """
+    result = podman(
+        "image", "inspect", "--format", f'{{{{ index .Labels "{REVISION_LABEL}" }}}}', "localhost/tree-eclass:dev",
+        timeout=60,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
 def build_image(root: Path, tag: str, rev: str) -> None:
     """Rebuild :dev immediately from the working checkout (dirty allowed)."""
     with tempfile.TemporaryDirectory(prefix="tree-dev-inputs-") as temporary:
@@ -618,8 +634,12 @@ def cmd_up(_: argparse.Namespace) -> int:
     if active("tree-eclass-dev.service"):
         print("Dev stack is already running; use `tree-dev sync` to rebuild it.")
         return 0
-    if not image_exists("dev"):
-        print("No :dev image yet; building from the working checkout (dirty allowed).")
+    image_rev = dev_image_rev()
+    if image_rev != rev:
+        if image_rev is None:
+            print("No :dev image yet; building from the working checkout (dirty allowed).")
+        else:
+            print(f":dev is rev {image_rev[:12]} but the checkout is {rev[:12]}; rebuilding (dirty allowed).")
         build_image(root, "dev", rev)
     # Prod keeps serving throughout; staging gets its own route and branch.
     try:

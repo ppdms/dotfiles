@@ -31,6 +31,10 @@ units. Service modules are in `services/`; system configuration is in
 - **Prepared or stopped.** State, credentials and images are prepared
   by dedicated units before services start. Failed preparation leaves
   services stopped rather than half-configured.
+- **Tree releases.** `tree-dev deploy` builds, checkpoints, migrates and
+  activates committed application code. A root-owned admission guard
+  prevents starts during incomplete recovery. See
+  [Tree application releases](updating.md#tree-application-releases).
 
 ## Locale
 
@@ -40,13 +44,13 @@ login session; existing processes retain their inherited locale variables.
 
 ## Locations
 
-| Subject | Place |
-|---|---|
-| The services, their containers and settings | `services/` |
-| The accounts services run as | `services/service-accounts.nix`, created by `machines/server/accounts.nix` |
-| Boot, disks, firewall, the approved-update mechanism | `machines/server/system.nix`, `machines/server/runtime.nix` |
-| The credential broker and other server tools | `services/tools/` |
-| Which services are enabled | The private settings; not this repository |
+| Subject                                              | Place                                                                      |
+| ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| The services, their containers and settings          | `services/`                                                                |
+| The accounts services run as                         | `services/service-accounts.nix`, created by `machines/server/accounts.nix` |
+| Boot, disks, firewall, the approved-update mechanism | `machines/server/system.nix`, `machines/server/runtime.nix`                |
+| The credential broker and other server tools         | `services/tools/`                                                          |
+| Which services are enabled                           | The private settings; not this repository                                  |
 
 ## Credential editing
 

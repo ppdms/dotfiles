@@ -1,4 +1,5 @@
 .DS_Store
+/.cloudflare/
 __pycache__/
 *.py[cod]
 /age/

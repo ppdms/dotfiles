@@ -23,8 +23,11 @@ bash tools/profile/rebuild.sh --update            # fetch newer public dependenc
 bash tools/profile/rebuild.sh --platform nixos    # name the machine type explicitly
 ```
 
-The shell provides the same operations as `rebuild`, `rebuild-update`,
-`profile-edit`, `profile-render` and `profile-seal`. Home Manager
+Interactive Fish provides the same shortcuts on macOS and NixOS:
+`rebuild`, `rebuild-update`, `profile-edit`, `profile-render` and
+`profile-seal`. They work from any directory. These are Fish aliases,
+not executables on `PATH`; Bash and non-interactive scripts must use the
+repository wrappers shown above. Home Manager
 installs their generated configuration during activation. Repository
 edits alone do not change the installed Fish configuration or functions
 in an open session.
@@ -113,6 +116,22 @@ The approval-boundary suite requires root and the
 `APPROVED_DEPLOYMENT_ARTIFACT` and `APPROVED_DEPLOYMENT_RUNTIME` build
 outputs. Some suites explicitly skip unavailable tools; not every
 platform requirement has a skip condition.
+
+Tree lifecycle checks are isolated from the live dataset:
+
+```bash
+profile python -B -m unittest discover -s services/tools -p 'test_tree_*.py'
+```
+
+They exercise real disposable SQLite/WAL, settings and objects; only
+service, process and registry boundaries are simulated. The image-input
+fixture runs the CLI parser and collector together: stdout must remain one
+JSON response, with human diagnostics on stderr. Recovery tests include
+interrupted publication, late migration launchers and retained failed data.
+The distinct-owner cases require root; use a disposable user/mount namespace
+with subordinate-ID mappings rather than giving a test access to live state.
+`HOMELAB_TEST_TOOLS` selects Nix-built helper sources for the new CLI,
+recovery and release fixtures.
 
 ## Rollback
 

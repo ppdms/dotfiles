@@ -48,6 +48,65 @@ bash tools/profile/rebuild.sh
 `--revision` takes a full commit id; no "latest" exists at build time.
 A service restarts when its container definition or image changes.
 
+## Tree application releases
+
+Nix owns Tree's accounts, services, migration unit, recovery admission and
+installed `tree-dev` command. Application releases remain application-scoped:
+they select an immutable locally built image through `:stable`, rather than
+rebuilding the entire server for each application commit.
+
+After changing the deployment tooling, install it and its matching service
+definitions through the normal, password-confirmed switch. In interactive
+Fish, use the same shortcut as on macOS (see [Rebuilding](daily-use.md#rebuilding)
+for the Bash wrapper):
+
+```fish
+rebuild
+```
+
+Then a release is one command, runnable from any working directory:
+
+```bash
+tree-dev deploy
+```
+
+The configured application checkout must be clean and committed. If the
+disposable development stack is running, use `tree-dev down` first; development
+data is never promoted. `tree-dev stage` observes changed upstream base images
+before their seven-day eligibility window. Local application commits are not
+age-gated.
+
+Deployment authorizes, builds and transfers the candidate while the previous
+runtime remains available. It then serializes lifecycle changes, blocks new
+starts, stops all known writers, and takes a cold checkpoint before migration.
+The Nix-owned migration service retains its exact exit result. Its required
+root-owned image permission is revoked before shutdown and recovery, so a
+delayed start cannot create another writer after the cold check.
+
+A failed build leaves the old runtime running. A failed activation restores
+both its image and its checkpointed database, objects, settings and identity,
+then restarts it only if it was previously running. The command still exits
+nonzero. If recovery itself fails, Tree stays blocked with the pending record
+intact. After interruption or resolving a reported recovery problem:
+
+```bash
+tree-dev status
+tree-dev recover
+```
+
+Recovery of an admitted candidate warns that later writes will be discarded;
+the failed dataset is retained in a private rescue copy. Checkpoints and
+journals live under `/var/lib/homelab/tree-releases`, outside workload-owned
+state. Mutable files use independent reflinks/copies; immutable objects use
+hardlinks on the same filesystem. Existing manual `.predeploy-*` backups are
+not modified. Managed checkpoints and their `checkpoint-*` image tags are
+retained, not automatically pruned.
+
+These are local recovery points, not external backups. A NixOS generation
+rollback changes configuration and tools; it does not restore Tree's
+application image or database. `recover` resolves a pending application
+activation, not arbitrary historical rollback.
+
 ## OMP and Tern
 
 **OMP** uses `omp update` on the server. The helper reads the public

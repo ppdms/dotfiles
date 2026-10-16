@@ -449,6 +449,9 @@ in
   ++ lib.mapAttrsToList (
     name: role: "d ${registry.metricsDirectory}/${name} 0755 ${role.account} ${role.account} -"
   ) homeRoles
+  ++ lib.optionals deployment.services.tree-eclass [
+    "d /var/lib/homelab/tree-releases 0755 root root -"
+  ]
   ++ lib.optionals deployment.services.ingress [
     "d ${registry.origin.directory} 2750 ${definitions.nginx.account} ${registry.origin.group} -"
   ];
