@@ -1093,7 +1093,8 @@ def cmd_status(_: argparse.Namespace) -> int:
         try:
             rendered = json.loads((dev / "jobs" / "application.json").read_text())
             hosts = rendered.get("allowed_hosts", [])
-            staging_host = next((host for host in hosts if host.startswith("staging.")), None)
+            candidates = [host for host in hosts if host not in ("127.0.0.1", "localhost")]
+            staging_host = next((host for host in candidates if "dev" in host), candidates[0] if candidates else None)
         except (OSError, ValueError):
             staging_host = None
         where = f"https://{staging_host} " if staging_host else ""

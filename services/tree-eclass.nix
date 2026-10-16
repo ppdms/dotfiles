@@ -26,16 +26,18 @@ let
       ]
       # The dev stack additionally serves the LAN-only staging name; prod's
       # render ignores these keys. Staging has no tunnel route and no public
-      # DNS, so listing it here does not widen prod's attack surface.
+      # DNS, so listing it here does not widen prod's attack surface. The
+      # single-label name is covered by the existing *.lan wildcard cert
+      # (a dotted staging.uni name would NOT be — wildcards match one label).
       ++ lib.optionals isDev [
-        "staging.uni.${systemConfig.homelab.lanDomain}"
+        "uni-dev.${systemConfig.homelab.lanDomain}"
       ];
       origins = [
         "https://uni.${systemConfig.homelab.lanDomain}"
         "https://uni.${systemConfig.homelab.publicDomain}"
       ]
       ++ lib.optionals isDev [
-        "https://staging.uni.${systemConfig.homelab.lanDomain}"
+        "https://uni-dev.${systemConfig.homelab.lanDomain}"
       ];
     }
   );
