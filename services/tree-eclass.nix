@@ -16,24 +16,44 @@ let
     lanDomain = systemConfig.homelab.lanDomain;
     publicDomain = systemConfig.homelab.publicDomain;
   };
-  originsArgument = lib.escapeShellArg (builtins.toJSON {
-    hosts = [
-      "uni.${systemConfig.homelab.lanDomain}"
-      "uni.${systemConfig.homelab.publicDomain}"
-      "127.0.0.1"
-      "localhost"
-    ];
-    origins = [
-      "https://uni.${systemConfig.homelab.lanDomain}"
-      "https://uni.${systemConfig.homelab.publicDomain}"
-    ];
-  });
+  originsArgument = lib.escapeShellArg (
+    builtins.toJSON {
+      hosts = [
+        "uni.${systemConfig.homelab.lanDomain}"
+        "uni.${systemConfig.homelab.publicDomain}"
+        "127.0.0.1"
+        "localhost"
+      ]
+      # The dev stack additionally serves the LAN-only staging name; prod's
+      # render ignores these keys. Staging has no tunnel route and no public
+      # DNS, so listing it here does not widen prod's attack surface.
+      ++ lib.optionals isDev [
+        "staging.uni.${systemConfig.homelab.lanDomain}"
+      ];
+      origins = [
+        "https://uni.${systemConfig.homelab.lanDomain}"
+        "https://uni.${systemConfig.homelab.publicDomain}"
+      ]
+      ++ lib.optionals isDev [
+        "https://staging.uni.${systemConfig.homelab.lanDomain}"
+      ];
+    }
+  );
   requireTreeState = pkgs.writeShellApplication {
     name = helperName;
-    runtimeInputs = [ pkgs.coreutils pkgs.podman ];
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.podman
+    ];
     text = ''
       umask 077
       state=${lib.escapeShellArg state}
+      # A release may have stopped midway through migration or dataset recovery.
+      # This root-owned gate also survives reboot; neither workload can clear it.
+      if [[ -e /var/lib/homelab/tree-releases/blocked ]]; then
+        echo "Tree start blocked by an incomplete release; run tree-dev recover." >&2
+        exit 1
+      fi
       # Each role requires its own identity files. Neither may traverse the other's home
       # or manufacture a new session, access code, database or object store.
       if [[ ! -s "$state/session" || ! -s "$state/code" ||
@@ -44,19 +64,26 @@ let
       secrets="''${XDG_RUNTIME_DIR:?}/homelab-secrets"
       runtime="$secrets/tree-eclass-runtime"
       install -d -m 0700 "$runtime"
-      ${if isDev then ''
-        branch=$(cat "$state/branch")
-        release=$(cat "$state/rev")
-        if [[ -z "$branch" || -z "$release" ]]; then
-          echo "Tree dev start blocked: use tree-dev up to stage a manual branch and revision." >&2
-          exit 1
-        fi
-      '' else ''
-        branch=""
-        release=$(podman image inspect --format '{{ index .Labels "org.opencontainers.image.revision" }}' localhost/tree-eclass:stable 2>/dev/null || true)
-        if [[ -z "$release" ]]; then release="da29b64"; fi
-      ''}
-      ${pkgs.python3}/bin/python3 - "$secrets/tree-eclass/tree-eclass/provider-keys" "$state/session" "$state/code" "$release" "$branch" "$runtime/application.json" ${originsArgument} ${if isDev then "dev" else "production"} <<'EOF'
+      ${
+        if isDev then
+          ''
+            branch=$(cat "$state/branch")
+            release=$(cat "$state/rev")
+            if [[ -z "$branch" || -z "$release" ]]; then
+              echo "Tree dev start blocked: use tree-dev up to stage a manual branch and revision." >&2
+              exit 1
+            fi
+          ''
+        else
+          ''
+            branch=""
+            release=$(podman image inspect --format '{{ index .Labels "org.opencontainers.image.revision" }}' localhost/tree-eclass:stable 2>/dev/null || true)
+            if [[ -z "$release" ]]; then release="da29b64"; fi
+          ''
+      }
+      ${pkgs.python3}/bin/python3 - "$secrets/tree-eclass/tree-eclass/provider-keys" "$state/session" "$state/code" "$release" "$branch" "$runtime/application.json" ${originsArgument} ${
+        if isDev then "dev" else "production"
+      } <<'EOF'
       import json, sys
       pkf, sf, cf, release, branch, out, origins_json, role = sys.argv[1:]
       origins = json.loads(origins_json)
@@ -98,29 +125,78 @@ let
       trap - EXIT
     '';
   };
-  renderQuadlet = source: lib.replaceStrings
-    [ "@secret-helper@" "@state-helper@" ]
-    [
-      "${secretHelper}/bin/homelab-secrets"
-      "${requireTreeState}/bin/${helperName}"
-    ]
-    (config.homelab.core.renderQuadlet source);
+  renderQuadlet =
+    source:
+    lib.replaceStrings
+      [ "@secret-helper@" "@state-helper@" ]
+      [
+        "${secretHelper}/bin/homelab-secrets"
+        "${requireTreeState}/bin/${helperName}"
+      ]
+      (config.homelab.core.renderQuadlet source);
 in
 {
   options.homelab.tree-eclass.enable = lib.mkEnableOption "this principal's Tree production or manual development runtime";
 
-  config = lib.mkIf (config.homelab.tree-eclass.enable && servicePrincipal != null) (lib.mkMerge [
-    (lib.mkIf (servicePrincipal.name == "tree-eclass") {
-      xdg.configFile."containers/systemd/tree-eclass.container".text =
-        renderQuadlet ./containers/tree-eclass.container;
-      xdg.configFile."containers/systemd/tree-eclass-migrate.container".text =
-        renderQuadlet ./containers/tree-eclass-migrate.container;
-    })
-    (lib.mkIf isDev {
-      xdg.configFile."containers/systemd/tree-eclass-dev.container".text =
-        renderQuadlet ./containers/tree-eclass-dev.container;
-      xdg.configFile."containers/systemd/tree-eclass-dev-migrate.container".text =
-        renderQuadlet ./containers/tree-eclass-dev-migrate.container;
-    })
-  ]);
+  config = lib.mkIf (config.homelab.tree-eclass.enable && servicePrincipal != null) (
+    lib.mkMerge [
+      (lib.mkIf (servicePrincipal.name == "tree-eclass") {
+        xdg.configFile."containers/systemd/tree-eclass.container".text =
+          renderQuadlet ./containers/tree-eclass.container;
+        xdg.configFile."containers/systemd/tree-eclass-migrate.container".text =
+          renderQuadlet ./containers/tree-eclass-migrate.container;
+        # Explicit lifecycle work, not part of homelab.target or automatic startup.
+        # A required root-owned permit prevents a delayed start after recovery has
+        # revoked admission. The manager owns the launcher and retains its result.
+        systemd.user.services.tree-eclass-deploy-migrate = {
+          Unit = {
+            Description = "Migrate the checkpointed Tree dataset for an approved release";
+            Requires = [ "apps-net-network.service" ];
+            After = [ "apps-net-network.service" ];
+          };
+          Service = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            EnvironmentFile = "/var/lib/homelab/tree-releases/migration.env";
+            UMask = "0077";
+            TimeoutStartSec = 600;
+            TimeoutStopSec = 60;
+            KillMode = "control-group";
+            ExecStart =
+              lib.escapeShellArgs [
+                "${pkgs.podman}/bin/podman"
+                "run"
+                "--rm"
+                "--name"
+                "tree-eclass-deploy-migrate"
+                "--user"
+                "10001:10001"
+                "--userns"
+                "keep-id:uid=10001,gid=10001"
+                "--pull=never"
+                "--network"
+                "apps-net"
+                "--env"
+                "TREE_RUNTIME_CONFIG=/run/tree-eclass/application.json"
+                "--env"
+                "GOMEMLIMIT=192MiB"
+                "-v"
+                "${state}/jobs:/jobs:rw"
+                "-v"
+                "${state}/objects:/data/objects:rw"
+                "-v"
+                "${state}/jobs/application.json:/run/tree-eclass/application.json:ro"
+              ]
+              + " \${TREE_RELEASE_IMAGE} container-migrate";
+          };
+        };
+      })
+      (lib.mkIf isDev {
+        xdg.configFile."containers/systemd/tree-eclass-dev.container".text =
+          renderQuadlet ./containers/tree-eclass-dev.container;
+        xdg.configFile."containers/systemd/tree-eclass-dev-migrate.container".text =
+          renderQuadlet ./containers/tree-eclass-dev-migrate.container;
+      })
+    ]
+  );
 }
