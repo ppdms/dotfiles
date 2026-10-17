@@ -11,6 +11,9 @@
 let
   space = systemConfig.homelab.paths.notes;
   kvState = "${servicePrincipal.stateRoot}/silverbullet/kv";
+  # Built from a local checkout (services/self-built.nix, docs/self-built-images.md).
+  built = (import ./self-built.nix { inherit lib systemConfig; }).silverbullet or null;
+  serve = built != null && built.serve;
   requireSilverbulletState = pkgs.writeShellApplication {
     name = "homelab-silverbullet-state";
     runtimeInputs = [ pkgs.coreutils ];
@@ -38,17 +41,28 @@ in
   options.homelab.silverbullet.enable = lib.mkEnableOption "SilverBullet notes on the Zettelkasten vault";
 
   config = lib.mkIf (config.homelab.silverbullet.enable && servicePrincipal != null && servicePrincipal.name == "silverbullet") {
-    homelab.core.imageSources = [ ./containers/silverbullet.container ];
+    # Serving the self-built image keeps the registry pin as a fallback: remove
+    # the service from the private settings' selfBuilt (or set serve = false).
+    homelab.core =
+      if serve then
+        {
+          selfBuilt.silverbullet = {
+            source = ./containers/silverbullet.container;
+            inherit (built) image;
+          };
+        }
+      else
+        { imageSources = [ ./containers/silverbullet.container ]; };
     xdg.configFile."containers/systemd/silverbullet.container".text =
       renderQuadlet ./containers/silverbullet.container;
-    # Built from the maintained client checkout, outside the writable notes view.
-    xdg.configFile."containers/systemd/silverbullet.container.d/10-editor-modes.conf" = {
+    # Bridge until the self-built image is served: mount a client built
+    # outside the image. Install it with services/tools/silverbullet-client-deploy.sh.
+    xdg.configFile."containers/systemd/silverbullet.container.d/10-editor-modes.conf" = lib.mkIf (!serve) {
       force = true;
       onChange = "homelabChangedContainers+=(silverbullet.service)";
       text = ''
         [Container]
         Volume=${servicePrincipal.stateRoot}/silverbullet/editor-modes/silverbullet:/silverbullet:ro
-        Environment=SB_INDEX_PAGE=Library/Local/index
       '';
     };
 

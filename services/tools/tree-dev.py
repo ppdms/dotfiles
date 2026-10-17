@@ -11,7 +11,7 @@ staging onto it; a migration failure discards the new branch and restores the
 previous one, so the failure is always observed before the branch serves. `down`
 discards the branch; staging answers 502 until the next `up`, prod is
 untouched. `stage` warms the declared upstream FROM images via
-`homelab-image-update tree-inputs` so their seven-day base observation can
+`homelab-image-update inputs` so their seven-day base observation can
 elapse. `deploy` authorizes only seven-day-aged immutable bases, then builds
 (or reuses) the clean committed HEAD image from a pinned rendering with
 `--pull=never` and promotes it by immutable ID (atomic :stable swap, no
@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import argparse
 from contextlib import closing
-import hashlib
 import json
 import os
 import random
@@ -35,10 +34,11 @@ import sqlite3
 import stat
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 from pathlib import Path
+import image_build
+from image_build import BuildError, BuildTarget, REVISION_LABEL, git_rev
 from principals import (
     PrincipalError,
     manifest,
@@ -46,22 +46,31 @@ from principals import (
     principal_for_unit,
     require_admin,
     run_as,
-    stream_image,
     tool,
 )
 from tree_recovery import RecoveryError, RecoveryStore
 
+# One error type across the shared build pipeline and the Tree lifecycle.
+DevError = BuildError
 
-class DevError(Exception):
-    pass
-
-
-REVISION_LABEL = "org.opencontainers.image.revision"
-BASE_IMAGES_LABEL = "io.homelab.tree.base-images"
-DOCKERFILE_DIGEST_LABEL = "io.homelab.tree.dockerfile-digest"
+LABEL_NAMESPACE = "io.homelab.tree"
 DEPLOY_MIGRATION_UNIT = "tree-eclass-deploy-migrate.service"
 PRODUCTION_UNITS = (DEPLOY_MIGRATION_UNIT, "tree-eclass.service", "tree-eclass-migrate.service")
 PRODUCTION_CONTAINERS = ("tree-eclass", "tree-eclass-migrate", "tree-eclass-deploy-migrate")
+
+
+def build_target() -> BuildTarget:
+    return BuildTarget(
+        name="tree-eclass",
+        repository="localhost/tree-eclass",
+        checkout=Path(os.environ["HOMELAB_TREE_CHECKOUT"]),
+        dockerfile="Dockerfile",
+        builder="tree-dev",
+        owner="tree-eclass",
+        label_namespace=LABEL_NAMESPACE,
+        markers=("Dockerfile", "backend/go.mod"),
+        revision_build_arg=None,
+    )
 
 
 def recovery_store() -> RecoveryStore:
@@ -139,63 +148,18 @@ def wait_health(name: str, timeout: int = 120) -> None:
 
 
 def checkout_root() -> Path:
-    root = Path(os.environ["HOMELAB_TREE_CHECKOUT"])
-    if (root / ".git").exists() and (root / "Dockerfile").is_file() and (root / "backend" / "go.mod").is_file():
-        return root
-    raise DevError("HOMELAB_TREE_CHECKOUT must name the tree-eclass checkout")
-
-
-def git_rev(root: Path, allow_dirty: bool) -> str:
     try:
-        status = subprocess.run(
-            [tool("git"), "-c", f"safe.directory={root}", "status", "--porcelain"],
-            cwd=root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
-        )
-        if status.returncode != 0:
-            raise DevError("git status failed; is this a git checkout?")
-        if status.stdout.strip() and not allow_dirty:
-            raise DevError("working tree is dirty; commit or stash before prod deploy")
-        rev = subprocess.run(
-            [tool("git"), "-c", f"safe.directory={root}", "rev-parse", "HEAD"],
-            cwd=root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30,
-        )
-        if rev.returncode != 0:
-            raise DevError("git rev-parse HEAD failed")
-        head = rev.stdout.strip()
-        if len(head) != 40 or any(c not in "0123456789abcdef" for c in head):
-            raise DevError("HEAD is not a full 40-hex commit SHA")
-        return head
-    except FileNotFoundError:
-        raise DevError("git is not on PATH") from None
+        return image_build.checkout_root(build_target())
+    except BuildError:
+        raise DevError("HOMELAB_TREE_CHECKOUT must name the tree-eclass checkout") from None
 
 
 def podman(*arguments: str, timeout: int = 600, role: str = "tree-dev") -> subprocess.CompletedProcess:
-    try:
-        return run_as(
-            role,
-            [tool("podman"), *arguments],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=timeout,
-        )
-    except FileNotFoundError:
-        raise DevError("podman is not on PATH") from None
+    return image_build.podman(role, *arguments, timeout=timeout)
 
 
 def image_exists(tag: str) -> bool:
-    result = podman("image", "exists", f"localhost/tree-eclass:{tag}", timeout=30)
-    if result.returncode not in (0, 1):
-        raise DevError("Tree dev image store is unavailable")
-    return result.returncode == 0
+    return image_build.image_exists("tree-dev", build_target().reference(tag))
 
 
 def dev_image_rev() -> str | None:
@@ -216,9 +180,12 @@ def dev_image_rev() -> str | None:
 
 def build_image(root: Path, tag: str, rev: str) -> None:
     """Rebuild :dev immediately from the working checkout (dirty allowed)."""
+    target = build_target()
     with tempfile.TemporaryDirectory(prefix="tree-dev-inputs-") as temporary:
-        specification, rendered = tree_inputs(root / "Dockerfile", require_aged=False, directory=Path(temporary))
-        build_production_image(root, tag, rev, specification, rendered, committed=False)
+        specification, rendered = image_build.authorize_bases(
+            target, root, require_aged=False, directory=Path(temporary)
+        )
+        image_build.build_image(target, root, tag, rev, specification, rendered, committed=False)
 
 
 def stop_prod() -> bool:
@@ -719,218 +686,17 @@ def cmd_down(_: argparse.Namespace) -> int:
     return 0
 
 
-def dockerfile_digest(dockerfile: Path) -> str:
-    try:
-        raw = dockerfile.read_bytes()
-    except OSError as error:
-        raise DevError(f"could not read {dockerfile}: {error}") from error
-    return "sha256:" + hashlib.sha256(raw).hexdigest()
-
-
-def base_provenance(specification: dict) -> str:
-    try:
-        references = {declared: artifact["reference"] for declared, artifact in specification["images"].items()}
-    except (AttributeError, KeyError, TypeError) as error:
-        raise DevError("tree-inputs spec names no immutable base references") from error
-    if any(not isinstance(ref, str) or "@sha256:" not in ref for ref in references.values()):
-        raise DevError("tree-inputs spec names a mutable base reference")
-    return json.dumps(references, sort_keys=True, separators=(",", ":"))
-
-
-def spec_dockerfile_digest(specification: dict) -> str:
-    digest = specification.get("dockerfile_digest")
-    if not isinstance(digest, str) or not digest.startswith("sha256:"):
-        raise DevError("tree-inputs spec names no Dockerfile digest")
-    return digest
-
-
-def tree_inputs(dockerfile: Path, *, require_aged: bool, directory: Path) -> tuple[dict, Path]:
-    """Authorize upstream bases; never the local image or its layers."""
-    spec_path = directory / "tree-inputs.json"
-    rendered_path = directory / "Dockerfile.pinned"
-    arguments = [
-        tool("image_update"),
-        "tree-inputs",
-        "--dockerfile-stdin",
-        "--json",
-    ]
-    if require_aged:
-        arguments.append("--require-aged")
-    try:
-        result = run_as("image-updates", arguments, input=dockerfile.read_bytes(), capture_output=True, timeout=300)
-    except OSError as error:
-        raise DevError(f"could not run tree-inputs: {error}") from error
-    if result.returncode != 0:
-        raise DevError(
-            result.stderr.decode("utf-8", "replace").strip()
-            or "upstream Tree bases are not seven-day eligible; production was not stopped"
-        )
-    try:
-        response = json.loads(result.stdout)
-        specification = response["specification"]
-        spec_path.write_text(json.dumps(specification))
-        rendered_path.write_text(response["rendered"])
-    except (OSError, ValueError) as error:
-        raise DevError(f"could not read tree-inputs spec: {error}") from error
-    if not isinstance(specification, dict) or specification.get("schema") != 1:
-        raise DevError("tree-inputs spec has an unsupported schema")
-    if spec_dockerfile_digest(specification) != dockerfile_digest(dockerfile):
-        raise DevError("tree-inputs spec does not match the committed Dockerfile")
-    base_provenance(specification)
-    if not rendered_path.is_file():
-        raise DevError("tree-inputs rendered no pinned Dockerfile")
-    return specification, rendered_path
-
-
-def inspect_labels(image: str) -> dict | None:
-    result = podman("image", "inspect", "--format", "{{json .Labels}}", image, timeout=30)
-    if result.returncode != 0:
-        return None
-    try:
-        labels = json.loads(result.stdout.strip() or "null")
-    except ValueError:
-        raise DevError(f"could not parse labels for {image}")
-    return labels if isinstance(labels, dict) else {}
-
-
-def image_identity(image: str) -> str:
-    result = podman("image", "inspect", "--format", "{{.Id}}", image, timeout=30)
-    if result.returncode != 0:
-        raise DevError(f"could not inspect {image}: {result.stderr[-1000:]}")
-    return result.stdout.strip()
-
-
-def acquire_base(reference: str) -> None:
-    """Load an approved base from the updater's exact-registry OCI archive."""
-    if "@sha256:" not in reference:
-        raise DevError(f"refusing to acquire a mutable base reference: {reference}")
-    presence = podman("image", "exists", reference, timeout=60)
-    if presence.returncode not in (0, 1):
-        raise DevError("Tree dev image store is unavailable")
-    if presence.returncode == 0:
-        return
-    result = run_as(
-        "image-updates",
-        [tool("image_update"), "acquire", "--signature-policy", os.environ["HOMELAB_SIGNATURE_POLICY"], reference],
-        text=True,
-        capture_output=True,
-        timeout=1800,
-    )
-    if result.returncode != 0:
-        raise DevError(f"could not acquire approved base {reference}:\n{result.stderr[-4000:]}")
-    stream_image("image-updates", "tree-dev", reference)
-    if podman("image", "exists", reference, timeout=60).returncode:
-        raise DevError("approved base OCI load did not retain its immutable reference")
-
-
-def build_production_image(
-    root: Path,
-    tag: str,
-    rev: str,
-    specification: dict,
-    rendered: Path,
-    *,
-    committed: bool = True,
-) -> str:
-    """Build clean committed code from a prepared pinned Dockerfile."""
-    provenance = base_provenance(specification)
-    digest = spec_dockerfile_digest(specification)
-    for reference in sorted({artifact["reference"] for artifact in specification["images"].values()}):
-        acquire_base(reference)
-    identity = principal("tree-dev")
-    with tempfile.TemporaryDirectory(prefix="build-context-", dir=identity["home"]) as temporary:
-        context = Path(temporary) / "context"
-        if committed:
-            context.mkdir(mode=0o700)
-            with tempfile.TemporaryFile() as errors:
-                archive = subprocess.Popen(
-                    [tool("git"), "-c", f"safe.directory={root}", "archive", "--format=tar", rev],
-                    cwd=root,
-                    stdout=subprocess.PIPE,
-                    stderr=errors,
-                )
-                try:
-                    with tarfile.open(fileobj=archive.stdout, mode="r|") as files:
-                        files.extractall(context, filter="data")
-                    archive.stdout.close()
-                    if archive.wait(timeout=120):
-                        raise DevError("could not export the committed Tree source")
-                finally:
-                    if archive.poll() is None:
-                        archive.kill()
-                        archive.wait()
-                    archive.stdout.close()
-        else:
-            shutil.copytree(root, context, symlinks=True, ignore=shutil.ignore_patterns(".git"))
-        if dockerfile_digest(context / "Dockerfile") != digest:
-            raise DevError("build context Dockerfile differs from its authorized input")
-        pinned = context / ".homelab.Dockerfile"
-        pinned.write_bytes(rendered.read_bytes())
-        for directory, dirs, files in os.walk(temporary, followlinks=False):
-            os.chown(directory, identity["uid"], identity["gid"])
-            os.chmod(directory, 0o700)
-            for name in dirs + files:
-                path = Path(directory) / name
-                os.chown(path, identity["uid"], identity["gid"], follow_symlinks=False)
-                if not path.is_symlink():
-                    path.chmod((path.stat().st_mode & 0o700) | 0o600 if path.is_file() else 0o700)
-        result = podman(
-            "build",
-            "--pull=never",
-            "-f",
-            str(pinned),
-            "--label",
-            f"{REVISION_LABEL}={rev}",
-            "--label",
-            f"{BASE_IMAGES_LABEL}={provenance}",
-            "--label",
-            f"{DOCKERFILE_DIGEST_LABEL}={digest}",
-            "-t",
-            f"localhost/tree-eclass:{tag}",
-            str(context),
-        )
-    if result.returncode != 0:
-        raise DevError(f"podman build :{tag} failed:\n{result.stderr[-4000:]}")
-    identity = image_identity(f"localhost/tree-eclass:{tag}")
-    print(f"Built localhost/tree-eclass:{tag} from {rev[:12]} on selected immutable bases.")
-    return identity
-
-
-def production_candidate(root: Path, rev: str, specification: dict, rendered: Path) -> str:
-    """Reuse only a cache proving the same revision, bases, and Dockerfile."""
-    tag = f"localhost/tree-eclass:{rev}"
-    cached = image_exists(rev)
-    labels = inspect_labels(tag) if cached else None
-    provenance = base_provenance(specification)
-    digest = spec_dockerfile_digest(specification)
-    if (
-        labels is not None
-        and labels.get(REVISION_LABEL) == rev
-        and labels.get(BASE_IMAGES_LABEL) == provenance
-        and labels.get(DOCKERFILE_DIGEST_LABEL) == digest
-    ):
-        return image_identity(tag)
-    if cached:
-        print("Cached candidate predates the approved bases or Dockerfile; rebuilding.")
-    return build_production_image(root, rev, rev, specification, rendered)
-
-
 def cmd_stage(_: argparse.Namespace) -> int:
     root = checkout_root()
     rev = git_rev(root, allow_dirty=False)
     with tempfile.TemporaryDirectory(prefix="tree-stage-") as temporary:
-        tree_inputs(root / "Dockerfile", require_aged=False, directory=Path(temporary))
+        image_build.authorize_bases(build_target(), root, require_aged=False, directory=Path(temporary))
     print(f"Warmed upstream bases for {rev[:12]}; deploy once all are seven-day eligible.")
     return 0
 
 
 def checked_production_image(image: str) -> str:
-    result = podman("image", "inspect", "--format", "{{.Id}}", image, role="tree-eclass", timeout=30)
-    identity = result.stdout.strip()
-    digest = identity.removeprefix("sha256:")
-    if result.returncode or len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
-        raise DevError(f"required production image is unavailable: {image}")
-    return identity
+    return image_build.checked_image("tree-eclass", image)
 
 
 def retain_previous_image(record: dict) -> str:
@@ -952,15 +718,11 @@ def retain_previous_image(record: dict) -> str:
 
 
 def set_stable(image: str) -> None:
-    tagged = podman("tag", image, "localhost/tree-eclass:stable", role="tree-eclass", timeout=30)
-    if tagged.returncode:
-        raise DevError(f"could not retag :stable: {tagged.stderr[-1000:]}")
+    image_build.set_tag("tree-eclass", image, "localhost/tree-eclass:stable")
 
 
 def remove_production_container() -> None:
-    removed = podman("rm", "--ignore", "tree-eclass", role="tree-eclass", timeout=60)
-    if removed.returncode:
-        raise DevError(f"could not remove stale production container: {removed.stderr[-1000:]}")
+    image_build.remove_container("tree-eclass", "tree-eclass")
 
 
 def restore_release(store: RecoveryStore, record: dict) -> None:
@@ -1028,18 +790,13 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     prod = prod_state()
     # The staging stack may keep running: deploy promotes committed code to
     # prod state only and never reads the dev branch.
+    target = build_target()
     with tempfile.TemporaryDirectory(prefix="tree-deploy-") as temporary:
-        specification, rendered = tree_inputs(root / "Dockerfile", require_aged=True, directory=Path(temporary))
-        identity = production_candidate(root, rev, specification, rendered)
-        source = identity
-        transferred = stream_image("tree-dev", "tree-eclass", source)
-        if transferred != identity:
-            raise DevError("authorized Tree image changed before production transfer")
-        label_result = podman(
-            "image", "inspect", "--format", "{{json .Labels}}", identity, role="tree-eclass", timeout=30
+        specification, rendered = image_build.authorize_bases(
+            target, root, require_aged=True, directory=Path(temporary)
         )
-        if label_result.returncode or json.loads(label_result.stdout) != inspect_labels(source):
-            raise DevError("production transfer did not preserve Tree provenance labels")
+        identity = image_build.candidate_image(target, root, rev, specification, rendered)
+        image_build.transfer_image(target, identity)
     previous_id = checked_production_image("localhost/tree-eclass:stable")
     was_running = production_running()
     unknown = [

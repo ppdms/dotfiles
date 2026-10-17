@@ -18,8 +18,9 @@ illustrate the module and container definition.
    lives in `services/core.nix`.
 3. **The container.** `services/containers/<name>.container` is a
    Quadlet file. Registry image references are rendered from the
-   selected digest pins. Local Tree development images have a separate
-   build workflow.
+   selected digest pins. A service built from a local checkout names
+   its image the same way (`@image:<name>@`) and renders to a local
+   image instead; see [Self-built images](self-built-images.md).
 4. **The account.** Services run under dedicated accounts, each with
    its own home and container store. The account data lives in
    `services/service-accounts.nix`; `machines/server/accounts.nix`
@@ -38,6 +39,10 @@ them into each service's container store before workloads start.
 `profile update-images` selects a feed commit; it does not pull a
 floating tag during system evaluation. Registry credentials stay with
 the updater. See [Updating](updating.md).
+
+Images built from a local checkout bypass the feed. They are built, health-checked
+and rolled back by `homelab-image-build` (or `tree-dev` for Tree), and
+distributed to the service's account by image ID.
 
 ## Secrets
 

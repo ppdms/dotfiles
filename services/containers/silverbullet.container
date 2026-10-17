@@ -20,6 +20,7 @@ Volume=@notes-path@:/data:rw
 Volume=@state-root@/silverbullet/kv:/var/lib/silverbullet:rw
 Environment=SB_FOLDER=/data
 Environment=SB_KV_DB=/var/lib/silverbullet/silverbullet.db
+Environment=SB_INDEX_PAGE=Library/Local/index
 # Server-side worker kill (SB_DISABLE_SERVICE_WORKER): the space-lua flag
 # arrives after boot (sync race) so the client still registers. The env
 # carries it in boot config from the first byte. Sync goes direct-only.

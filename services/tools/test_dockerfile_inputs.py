@@ -5,9 +5,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from image_age import AgeStore, MINIMUM_AGE
+from image_age import AgeError, AgeStore, MINIMUM_AGE
 from image_registry import RegistryError
-from tree_image_inputs import TreeInputsError, collect_inputs, render_dockerfile
+import json
+
+from dockerfile_inputs import DockerfileInputsError, build_inputs, collect_inputs, render_dockerfile
 
 BUN = "docker.io/oven/bun:1.4.2-slim"
 GO = "docker.io/library/golang:1.27.1"
@@ -66,7 +68,7 @@ def write_dockerfile(directory, text):
     return path
 
 
-class TreeInputsTests(unittest.TestCase):
+class DockerfileInputsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -85,7 +87,7 @@ class TreeInputsTests(unittest.TestCase):
     def store(self, now):
         return AgeStore(self.store_path, now=now)
 
-    def tree_registry(self, bun=1, go=2, python=3):
+    def upstream_registry(self, bun=1, go=2, python=3):
         return ScriptedRegistry({
             (repository_of(BUN), "1.4.2-slim"): artifact(repository_of(BUN), bun),
             (repository_of(GO), "1.27.1"): artifact(repository_of(GO), go),
@@ -93,7 +95,7 @@ class TreeInputsTests(unittest.TestCase):
         })
 
     def test_old_published_inputs_qualify_immediately_without_backdating_observation(self):
-        registry = self.tree_registry()
+        registry = self.upstream_registry()
         now = 10 * MINIMUM_AGE
         for image in registry.latest.values():
             image["publication"] = {
@@ -108,7 +110,7 @@ class TreeInputsTests(unittest.TestCase):
         self.assertEqual(set(self.store(now).data["content"].values()), {now})
 
     def test_new_publication_during_revalidation_blocks_previously_qualified_input(self):
-        registry = self.tree_registry()
+        registry = self.upstream_registry()
         now = 10 * MINIMUM_AGE
         for image in registry.latest.values():
             image["publication"] = {
@@ -126,27 +128,27 @@ class TreeInputsTests(unittest.TestCase):
             return image
 
         registry.inspect = inspect
-        with self.assertRaisesRegex(TreeInputsError, "quarantined"):
+        with self.assertRaisesRegex(DockerfileInputsError, "quarantined"):
             collect_inputs(self.dockerfile, self.store(now),
                            require_aged=True, registry=registry)
 
     def test_new_build_stage_image_blocks_even_with_aged_runtime(self):
-        registry = self.tree_registry()
+        registry = self.upstream_registry()
         collect_inputs(self.dockerfile, self.store(now=100), registry=registry)
         self.dockerfile.write_text(self.dockerfile.read_text().replace(GO, repository_of(GO) + ":1.27.2"))
         registry.latest[(repository_of(GO), "1.27.2")] = artifact(repository_of(GO), 4)
-        with self.assertRaisesRegex(TreeInputsError, "golang:1.27.2"):
+        with self.assertRaisesRegex(DockerfileInputsError, "golang:1.27.2"):
             collect_inputs(self.dockerfile, self.store(now=100 + MINIMUM_AGE),
                            require_aged=True, registry=registry)
 
     def test_one_young_input_blocks_until_exact_age_boundary(self):
-        registry = self.tree_registry()
+        registry = self.upstream_registry()
         early = self.store(now=100)
         early.observe(registry.latest[(repository_of(BUN), "1.4.2-slim")])
         early.observe(registry.latest[(repository_of(GO), "1.27.1")])
         early.save()
         collect_inputs(self.dockerfile, self.store(now=1000), registry=registry)
-        with self.assertRaisesRegex(TreeInputsError, "python:3.14.7-slim-trixie"):
+        with self.assertRaisesRegex(DockerfileInputsError, "python:3.14.7-slim-trixie"):
             collect_inputs(self.dockerfile, self.store(now=1000 + MINIMUM_AGE - 1),
                            require_aged=True, registry=registry)
         approved = collect_inputs(self.dockerfile, self.store(now=1000 + MINIMUM_AGE),
@@ -154,10 +156,10 @@ class TreeInputsTests(unittest.TestCase):
         self.assertEqual(approved["images"][PYTHON]["manifest"], digest(3))
 
     def test_same_tag_young_rebuild_falls_back_then_advances_after_aging(self):
-        original = self.tree_registry(python=11)
+        original = self.upstream_registry(python=11)
         old_python = original.latest[(repository_of(PYTHON), "3.14.7-slim-trixie")]
         collect_inputs(self.dockerfile, self.store(now=200_000), registry=original)
-        registry = self.tree_registry(python=12)
+        registry = self.upstream_registry(python=12)
         registry.extra[old_python["manifest"]] = old_python
         current = self.store(now=200_000 + MINIMUM_AGE)
         selected = collect_inputs(self.dockerfile, current, require_aged=True, registry=registry)
@@ -177,23 +179,23 @@ class TreeInputsTests(unittest.TestCase):
         registry = ScriptedRegistry({
             (repository_of(PYTHON), "3.14-slim"): artifact(repository_of(PYTHON), 22),
         })
-        with self.assertRaisesRegex(TreeInputsError, "no aged artifact for this source"):
+        with self.assertRaisesRegex(DockerfileInputsError, "no aged artifact for this source"):
             collect_inputs(path, self.store(now=300_000 + MINIMUM_AGE),
                            require_aged=True, registry=registry)
 
-    def test_missing_layer_preserves_other_inputs_but_blocks_production(self):
-        registry = self.tree_registry()
+    def test_missing_layer_preserves_other_inputs_but_blocks_the_build(self):
+        registry = self.upstream_registry()
         registry.failures.add((repository_of(GO), "1.27.1"))
-        with self.assertRaisesRegex(RegistryError, "Tree base .*golang"):
+        with self.assertRaisesRegex(RegistryError, "Base image .*golang"):
             collect_inputs(self.dockerfile, self.store(now=400_000), registry=registry)
-        self.assertIn(BUN, self.store(now=400_000).data["tree_inputs"])
-        self.assertNotIn(GO, self.store(now=400_000).data["tree_inputs"])
+        self.assertIn(BUN, self.store(now=400_000).data["build_inputs"])
+        self.assertNotIn(GO, self.store(now=400_000).data["build_inputs"])
         with self.assertRaises(RegistryError):
             collect_inputs(self.dockerfile, self.store(now=400_000 + MINIMUM_AGE),
                            require_aged=True, registry=registry)
 
     def test_registry_unavailable_during_revalidation_fails_closed(self):
-        registry = self.tree_registry()
+        registry = self.upstream_registry()
         collect_inputs(self.dockerfile, self.store(now=500_000), registry=registry)
         registry.failures.add(digest(1))
         with self.assertRaisesRegex(RegistryError, "revalidation failed"):
@@ -208,8 +210,8 @@ class TreeInputsTests(unittest.TestCase):
             "FROM --platform=$ARCH docker.io/oven/bun:1.4.2-slim\n",
         ):
             path = write_dockerfile(self.root, text)
-            with self.assertRaisesRegex(TreeInputsError, "unresolved|unsupported"):
-                collect_inputs(path, self.store(now=600_000), registry=self.tree_registry())
+            with self.assertRaisesRegex(DockerfileInputsError, "unresolved|unsupported"):
+                collect_inputs(path, self.store(now=600_000), registry=self.upstream_registry())
 
     def test_implicit_external_copy_or_mount_image_is_rejected(self):
         for text in (
@@ -219,33 +221,89 @@ class TreeInputsTests(unittest.TestCase):
             f"FROM {BUN} AS build\nRUN --mount=type=cache,from=docker.io/library/busybox:1.36,target=/x echo hi\n",
         ):
             path = write_dockerfile(self.root, text)
-            with self.assertRaisesRegex(TreeInputsError, "declare the external image|unknown stage"):
-                collect_inputs(path, self.store(now=610_000), registry=self.tree_registry())
+            with self.assertRaisesRegex(DockerfileInputsError, "declare the external image|unknown stage"):
+                collect_inputs(path, self.store(now=610_000), registry=self.upstream_registry())
 
     def test_changed_dockerfile_cannot_use_previous_authorization(self):
-        spec = collect_inputs(self.dockerfile, self.store(now=700_000), registry=self.tree_registry())
+        spec = collect_inputs(self.dockerfile, self.store(now=700_000), registry=self.upstream_registry())
         self.dockerfile.write_text(self.dockerfile.read_text() + f"FROM {BUN} AS extra\n")
-        with self.assertRaisesRegex(TreeInputsError, "changed since observation"):
+        with self.assertRaisesRegex(DockerfileInputsError, "changed since observation"):
             render_dockerfile(self.dockerfile, spec)
 
     def test_tampered_or_missing_base_provenance_is_rejected(self):
-        spec = collect_inputs(self.dockerfile, self.store(now=710_000), registry=self.tree_registry())
+        spec = collect_inputs(self.dockerfile, self.store(now=710_000), registry=self.upstream_registry())
         tampered = dict(spec, images=dict(spec["images"]))
         tampered["images"][BUN] = dict(spec["images"][BUN])
         tampered["images"][BUN]["reference"] = repository_of(GO) + "@" + digest(1)
-        with self.assertRaisesRegex(TreeInputsError, "provenance mismatch"):
+        with self.assertRaisesRegex(DockerfileInputsError, "provenance mismatch"):
             render_dockerfile(self.dockerfile, tampered)
         dropped = dict(spec, images={key: value for key, value in spec["images"].items() if key != GO})
-        with self.assertRaisesRegex(TreeInputsError, "provenance mismatch"):
+        with self.assertRaisesRegex(DockerfileInputsError, "provenance mismatch"):
             render_dockerfile(self.dockerfile, dropped)
 
-    def test_old_builder_timestamp_cannot_grant_tree_age(self):
+    def test_old_builder_timestamp_cannot_grant_age(self):
         ancient = artifact(repository_of(BUN), 51, created_at=1)
         registry = ScriptedRegistry({(repository_of(BUN), "1.4.2-slim"): ancient})
         path = write_dockerfile(self.root, f"FROM {BUN} AS build\n")
         collect_inputs(path, self.store(now=900_000), registry=registry)
-        with self.assertRaisesRegex(TreeInputsError, "production blocked"):
+        with self.assertRaisesRegex(DockerfileInputsError, "Image build blocked"):
             collect_inputs(path, self.store(now=900_000), require_aged=True, registry=registry)
+
+
+    def rename_persisted_key(self, old, new):
+        state = json.loads(self.store_path.read_text())
+        state[old] = state.pop(new)
+        self.store_path.write_text(json.dumps(state))
+
+    def test_legacy_tree_inputs_observations_survive_migration_with_their_age(self):
+        original = self.upstream_registry(python=11)
+        old_python = original.latest[(repository_of(PYTHON), "3.14.7-slim-trixie")]
+        collect_inputs(self.dockerfile, self.store(now=200_000), registry=original)
+        self.rename_persisted_key("tree_inputs", "build_inputs")
+        registry = self.upstream_registry(python=12)
+        registry.extra[old_python["manifest"]] = old_python
+        store = self.store(now=200_000 + MINIMUM_AGE)
+        selected = collect_inputs(self.dockerfile, store, require_aged=True, registry=registry)
+        # The old-key observation is still aged, so it remains the fallback.
+        self.assertEqual(selected["images"][PYTHON]["manifest"], digest(11))
+        persisted = json.loads(self.store_path.read_text())
+        self.assertNotIn("tree_inputs", persisted)
+        self.assertEqual(set(persisted["build_inputs"][PYTHON]), {digest(11), digest(12)})
+
+    def test_legacy_key_is_moved_without_losing_anything(self):
+        collect_inputs(self.dockerfile, self.store(now=300_000), registry=self.upstream_registry())
+        before = json.loads(self.store_path.read_text())
+        self.rename_persisted_key("tree_inputs", "build_inputs")
+        store = self.store(now=300_000)
+        self.assertEqual(build_inputs(store), before["build_inputs"])
+        self.assertNotIn("tree_inputs", store.data)
+        store.save()
+        self.assertEqual(json.loads(self.store_path.read_text()), before)
+
+    def test_both_keys_merge_and_keep_earlier_first_observation_times(self):
+        collect_inputs(self.dockerfile, self.store(now=400_000), registry=self.upstream_registry(python=21))
+        self.rename_persisted_key("tree_inputs", "build_inputs")
+        collect_inputs(self.dockerfile, self.store(now=500_000), registry=self.upstream_registry(python=22))
+        state = json.loads(self.store_path.read_text())
+        state["tree_inputs"] = json.loads(json.dumps(state["build_inputs"]))
+        del state["tree_inputs"][PYTHON][digest(22)]
+        del state["build_inputs"][PYTHON][digest(21)]
+        state["tree_inputs"][GO]["extra"] = {"manifest": "extra"}
+        self.store_path.write_text(json.dumps(state))
+        merged = build_inputs(self.store(now=500_000))
+        self.assertEqual(set(merged[PYTHON]), {digest(21), digest(22)})
+        self.assertIn("extra", merged[GO])
+        store = self.store(now=500_000)
+        self.assertEqual(store.data["content"][digest(21)], 400_000)
+        self.assertEqual(store.data["content"][digest(22)], 500_000)
+
+    def test_malformed_observation_state_is_rejected(self):
+        for key in ("build_inputs", "tree_inputs"):
+            with self.subTest(key=key):
+                self.store_path.write_text(json.dumps({
+                    "schema": 1, "last_observed": 0, "content": {}, "candidates": {}, key: []}))
+                with self.assertRaisesRegex(AgeError, f"invalid {key} observation state"):
+                    build_inputs(self.store(now=1))
 
 
 if __name__ == "__main__":

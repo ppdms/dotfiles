@@ -14,6 +14,7 @@ sys.path.insert(0, str(TOOLS))
 spec = importlib.util.spec_from_file_location("tree_dev", TOOLS / "tree-dev.py")
 tree = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tree)
+import image_build
 
 
 class BranchLifecycleTests(unittest.TestCase):
@@ -184,28 +185,40 @@ class BranchLifecycleTests(unittest.TestCase):
         self.assertEqual(self.database.read_bytes(), self.original)
 
 
+TARGET = image_build.BuildTarget(
+    name="tree-eclass",
+    repository="localhost/tree-eclass",
+    checkout=Path("/home/example/tree-eclass"),
+    dockerfile="Dockerfile",
+    builder="tree-dev",
+    owner="tree-eclass",
+    label_namespace=tree.LABEL_NAMESPACE,
+    markers=("Dockerfile", "backend/go.mod"),
+)
+
+
 class ApprovedBaseTests(unittest.TestCase):
     def test_failed_acquisition_does_not_transfer_partial_base(self):
         reference = "docker.io/example/base@sha256:" + "1" * 64
         with (
             patch.dict(os.environ, {"HOMELAB_SIGNATURE_POLICY": "/policy.json"}),
-            patch.object(tree, "podman", return_value=Mock(returncode=1)),
-            patch.object(tree, "run_as", return_value=Mock(returncode=1, stderr="invalid registry image archive")),
-            patch.object(tree, "stream_image") as stream,
+            patch.object(image_build, "podman", return_value=Mock(returncode=1)),
+            patch.object(image_build, "run_as", return_value=Mock(returncode=1, stderr="invalid registry image archive")),
+            patch.object(image_build, "stream_image") as stream,
         ):
             with self.assertRaisesRegex(tree.DevError, "invalid registry image archive"):
-                tree.acquire_base(reference)
+                image_build.acquire_base(TARGET, reference)
             stream.assert_not_called()
 
     def test_unavailable_runtime_does_not_trigger_acquisition(self):
         reference = "docker.io/example/base@sha256:" + "1" * 64
         with (
-            patch.object(tree, "podman", return_value=Mock(returncode=125)),
-            patch.object(tree, "run_as") as acquire,
-            patch.object(tree, "stream_image") as stream,
+            patch.object(image_build, "podman", return_value=Mock(returncode=125)),
+            patch.object(image_build, "run_as") as acquire,
+            patch.object(image_build, "stream_image") as stream,
         ):
             with self.assertRaisesRegex(tree.DevError, "store is unavailable"):
-                tree.acquire_base(reference)
+                image_build.acquire_base(TARGET, reference)
             acquire.assert_not_called()
             stream.assert_not_called()
 

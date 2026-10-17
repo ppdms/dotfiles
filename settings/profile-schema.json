@@ -1373,6 +1373,30 @@
               "additionalProperties": false,
               "default": {}
             },
+            "selfBuilt": {
+              "type": "object",
+              "properties": {
+                "silverbullet": {
+                  "type": "object",
+                  "properties": {
+                    "checkout": {
+                      "$ref": "#/$defs/absolutePath"
+                    },
+                    "serve": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "checkout"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false,
+              "default": {}
+            },
             "esphomeUsername": {
               "$ref": "#/$defs/name"
             },

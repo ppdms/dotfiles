@@ -15,6 +15,7 @@ let
   sources = runCommand "tree-dev-source" { } ''
     mkdir -p "$out"
     cp ${./tree-dev.py} "$out/tree-dev.py"
+    cp ${./image_build.py} "$out/image_build.py"
     cp ${./principals.py} "$out/principals.py"
     cp ${./tree_recovery.py} "$out/tree_recovery.py"
   '';

@@ -35,6 +35,14 @@
 - **Image feed** — a small local git repository of approved,
   digest-pinned container image references. Private state records its
   location and the selected commit.
+- **Self-built image** — a container image the server builds itself from a
+  local git checkout, rather than pulling an upstream one. Built and released
+  with `homelab-image-build`. See [Self-built images](self-built-images.md).
+- **Base-image quarantine** — the rule that an upstream image named in a
+  `FROM` line must have been observed for seven days before a self-built image
+  may use it. Your own code is never delayed.
+- **Builder account** — `image-builds`: the dedicated account whose container
+  store runs `podman build` for self-built images.
 - **Approved copy** — the frozen code, settings and lock saved by a
   password-confirmed manual switch on the server; the sole input the
   unattended updater may consume.

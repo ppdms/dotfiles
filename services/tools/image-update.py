@@ -21,7 +21,8 @@ import tempfile
 
 from image_age import AgeError, AgeStore, atomic_json
 from image_registry import Registry, RegistryError, stable_tags
-from tree_image_inputs import collect_inputs, render_dockerfile
+from dockerfile_inputs import (DockerfileInputsError, build_inputs, collect_inputs,
+                               render_dockerfile)
 from principals import (PrincipalError, current_principal, manifest, principal,
                         principal_for_unit, registry_archive_path, require_admin,
                         run_as, stream_image, tool)
@@ -440,6 +441,48 @@ def activate_images(specification: Path, selected_principal: str | None = None) 
     return 0
 
 
+def trusted_spec_path(path: Path) -> Path:
+    resolved = path.resolve(strict=True)
+    if not (str(resolved).startswith("/nix/store/") or str(resolved).startswith("/etc/homelab/")):
+        raise UpdateError("build specification must be installed in /etc/homelab or the Nix store")
+    metadata = resolved.stat()
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != 0 or metadata.st_mode & 0o022:
+        raise UpdateError("build specification must be a root-owned, non-writable regular file")
+    return resolved
+
+
+def read_build_spec(path: Path) -> list[tuple[str, Path]]:
+    value = json.loads(trusted_spec_path(path).read_text())
+    images = value.get("images") if isinstance(value, dict) else None
+    if not isinstance(value, dict) or value.get("schema") != 1 or not isinstance(images, list):
+        raise UpdateError("unsupported build specification")
+    entries = []
+    for image in images:
+        name = image.get("name") if isinstance(image, dict) else None
+        dockerfile = image.get("dockerfile") if isinstance(image, dict) else None
+        if not isinstance(name, str) or not name or not isinstance(dockerfile, str) or not Path(dockerfile).is_absolute():
+            raise UpdateError("invalid build specification entry")
+        entries.append((name, Path(dockerfile)))
+    return entries
+
+
+def observe_builds(specification: Path, state_dir: Path) -> int:
+    """Observe every declared self-built Dockerfile; one broken image never hides the rest."""
+    failed = []
+    for name, dockerfile in read_build_spec(specification):
+        if not dockerfile.exists():
+            print(f"{name}: skipped, Dockerfile {dockerfile} does not exist", file=sys.stderr)
+            continue
+        try:
+            collect_inputs(dockerfile, AgeStore(state_dir / "observations.json"))
+        except (DockerfileInputsError, RegistryError, AgeError, OSError, ValueError) as error:
+            print(f"{name}: observation failed: {error}", file=sys.stderr)
+            failed.append(name)
+    if failed:
+        raise UpdateError("image build observation failed for: " + ", ".join(failed))
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     home = Path.home()
@@ -461,13 +504,15 @@ def main(argv=None) -> int:
     distribution = subparsers.add_parser("distribute", help="Root/admin: stream missing locked images into service runtimes")
     distribution.add_argument("--spec", required=True, type=Path)
     distribution.add_argument("--signature-policy", required=True, type=Path)
-    tree = subparsers.add_parser("tree-inputs", help="Observe or authorize upstream Tree build images, never local code")
-    tree.add_argument("--dockerfile", type=Path)
-    tree.add_argument("--dockerfile-stdin", action="store_true")
-    tree.add_argument("--json", action="store_true", help="Return specification and rendered Dockerfile on stdout")
-    tree.add_argument("--require-aged", action="store_true")
-    tree.add_argument("--output", type=Path)
-    tree.add_argument("--rendered-output", type=Path)
+    inputs = subparsers.add_parser("inputs", help="Observe or authorize the upstream FROM images of a Dockerfile, never local code")
+    inputs.add_argument("--dockerfile", type=Path)
+    inputs.add_argument("--dockerfile-stdin", action="store_true")
+    inputs.add_argument("--json", action="store_true", help="Return specification and rendered Dockerfile on stdout")
+    inputs.add_argument("--require-aged", action="store_true")
+    inputs.add_argument("--output", type=Path)
+    inputs.add_argument("--rendered-output", type=Path)
+    observation = subparsers.add_parser("observe-builds", help="Observe the upstream FROM images of every declared self-built Dockerfile")
+    observation.add_argument("--spec", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
         if args.action == "distribute":
@@ -488,14 +533,14 @@ def main(argv=None) -> int:
             return activate_images(args.spec, args.principal)
         if os.getuid() != principal("image-updates")["uid"]:
             require_admin()
-            if args.action == "tree-inputs":
+            if args.action == "inputs":
                 if args.dockerfile_stdin:
                     dockerfile = sys.stdin.buffer.read()
                 elif args.dockerfile:
                     dockerfile = args.dockerfile.read_bytes()
                 else:
-                    raise UpdateError("tree-inputs requires a Dockerfile")
-                arguments = [tool("image_update"), "tree-inputs", "--dockerfile-stdin", "--json"]
+                    raise UpdateError("inputs requires a Dockerfile")
+                arguments = [tool("image_update"), "inputs", "--dockerfile-stdin", "--json"]
                 if args.require_aged:
                     arguments.append("--require-aged")
                 result = run_as("image-updates", arguments, input=dockerfile, capture_output=True, timeout=600)
@@ -515,14 +560,14 @@ def main(argv=None) -> int:
         # Activation must serialize with an existing observer, not fail because
         # that worker is still finishing the previous generation's scan.
         with locked(args.state_dir, wait=args.action == "init"):
-            if args.action == "tree-inputs":
-                with tempfile.TemporaryDirectory(prefix="tree-inputs-", dir=os.environ["XDG_RUNTIME_DIR"]) as temporary:
+            if args.action == "inputs":
+                with tempfile.TemporaryDirectory(prefix="dockerfile-inputs-", dir=os.environ["XDG_RUNTIME_DIR"]) as temporary:
                     dockerfile = args.dockerfile
                     if args.dockerfile_stdin:
                         dockerfile = Path(temporary) / "Dockerfile"
                         dockerfile.write_bytes(sys.stdin.buffer.read())
                     if dockerfile is None:
-                        raise UpdateError("tree-inputs requires a Dockerfile")
+                        raise UpdateError("inputs requires a Dockerfile")
                     specification = collect_inputs(dockerfile, AgeStore(args.state_dir / "observations.json"),
                                                    require_aged=args.require_aged)
                     rendered = render_dockerfile(dockerfile, specification)
@@ -533,6 +578,8 @@ def main(argv=None) -> int:
                 if args.output:
                     atomic_json(args.output, specification)
                 return 0
+            if args.action == "observe-builds":
+                return observe_builds(args.spec, args.state_dir)
             if args.action == "status":
                 store = AgeStore(args.state_dir / "observations.json")
                 for key, records in sorted(store.data["candidates"].items()):
@@ -540,11 +587,11 @@ def main(argv=None) -> int:
                         deadline = store.eligible_at(record["artifact"])
                         threshold = datetime.fromtimestamp(deadline, timezone.utc).isoformat() if deadline is not None else "unknown"
                         print(f"{key}: {record['version']} age threshold at {threshold} ({store.evidence_source(record['artifact'])})")
-                for reference, artifacts in sorted(store.data.get("tree_inputs", {}).items()):
+                for reference, artifacts in sorted(build_inputs(store).items()):
                     for artifact in artifacts.values():
                         deadline = store.eligible_at(artifact)
                         threshold = datetime.fromtimestamp(deadline, timezone.utc).isoformat() if deadline is not None else "unknown"
-                        print(f"Tree base {reference}: {artifact['manifest']} age threshold at {threshold} ({store.evidence_source(artifact)})")
+                        print(f"Base image {reference}: {artifact['manifest']} age threshold at {threshold} ({store.evidence_source(artifact)})")
                 return 0
             if args.policy is None or args.seed is None:
                 raise UpdateError("--policy and --seed are required outside the packaged command")

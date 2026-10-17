@@ -48,7 +48,17 @@ bash tools/profile/rebuild.sh
 `--revision` takes a full commit id; no "latest" exists at build time.
 A service restarts when its container definition or image changes.
 
+Services built from a local checkout do not use the feed at all: their image
+is built on the server and released with `homelab-image-build deploy NAME`,
+without a system switch. See [Self-built images](self-built-images.md).
+
 ## Tree application releases
+
+Tree is a [self-built service](self-built-images.md) that also owns data, so it
+has its own command, `tree-dev`, built on the same pipeline as
+`homelab-image-build`: the same clean-commit build, seven-day base-image
+quarantine, transfer by image ID and `:stable` promotion. What `tree-dev` adds
+is below.
 
 Nix owns Tree's accounts, services, migration unit, recovery admission and
 installed `tree-dev` command. Application releases remain application-scoped:

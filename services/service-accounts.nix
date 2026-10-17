@@ -1,6 +1,7 @@
 { lib, systemConfig }:
 let
   switches = systemConfig.homelab.services;
+  selfBuilt = import ./self-built.nix { inherit lib systemConfig; };
   make = name: slot: module: units: components: stateDirectories: {
     inherit
       name
@@ -35,7 +36,7 @@ let
     ] [ "homeassistant" ] [ "homeassistant/config" ];
     image-updates = make "image-updates" 6 null [
       "homelab-image-observe.service"
-      "homelab-tree-image-observe.service"
+      "homelab-build-inputs-observe.service"
     ] [ "image-updates" ] [ ];
     immich = make "immich" 7 "immich" [
       "immich-database.service"
@@ -78,6 +79,11 @@ let
     secrets-export = make "secrets-export" 22 null [
       "homelab-secrets-export.service"
     ] [ ] [ "secrets-export" ];
+    # Builds the images of self-built services (see self-built.nix). It exists
+    # only while at least one such service is declared in the private settings.
+    image-builds = (make "image-builds" 23 null [ ] [ ] [ ]) // {
+      enabled = switches.core && selfBuilt != { };
+    };
   };
   principals = lib.filterAttrs (_: role: role.enabled) definitions;
   ports = {
@@ -103,7 +109,12 @@ let
   };
 in
 {
-  inherit principals definitions ports;
+  inherit
+    principals
+    definitions
+    ports
+    selfBuilt
+    ;
   origin = {
     directory = "/run/homelab-cloudflared-origin";
     group = "homelab-origin";

@@ -113,9 +113,19 @@ let
         ''install -D -m ${mode} ${text} "$out"/${lib.escapeShellArg file.name}''
       ) files}
     '';
-  # The locked feed owns image references; application modules own their sources.
-  placeholders = map (key: "@image:${key}@") (builtins.attrNames cfg.imagePins);
-  references = map (key: cfg.imagePins.${key}.reference) (builtins.attrNames cfg.imagePins);
+  # The locked feed owns registry image references; application modules own
+  # their sources. A self-built service names its local image instead.
+  builtKeys = builtins.attrNames cfg.selfBuilt;
+  # A service stays in the pin feed so it can fall back to its registry image;
+  # while it is self-built, the local image takes precedence.
+  pinKeys = lib.subtractLists builtKeys (builtins.attrNames cfg.imagePins);
+  placeholders = map (key: "@image:${key}@") (pinKeys ++ builtKeys);
+  references =
+    map (key: cfg.imagePins.${key}.reference) pinKeys
+    ++ map (key: cfg.selfBuilt.${key}.image) builtKeys;
+  # True for every principal that runs Quadlet containers.
+  runsContainers =
+    cfg.imageSources != [ ] || cfg.selfBuilt != { } || servicePrincipal.module == "tree-eclass";
   renderQuadlet =
     source:
     let
@@ -210,6 +220,27 @@ in
       default = { };
       description = "Pinned service images from the locked service-images feed input.";
     };
+    selfBuilt = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            source = lib.mkOption {
+              type = lib.types.path;
+              description = "Quadlet source whose image is built locally.";
+            };
+            image = lib.mkOption {
+              type = lib.types.strMatching "localhost/[^[:space:]@]+:[^[:space:]@]+";
+              description = "Local image reference (never a registry pin) rendered into the Quadlet.";
+            };
+          };
+        }
+      );
+      default = { };
+      description = ''
+        Self-built services, keyed by the @image:key@ placeholder they replace. Their
+        images come from `homelab-image-build`, never from the registry pin feed.
+      '';
+    };
     renderConfig = lib.mkOption {
       type = lib.types.functionTo lib.types.str;
       readOnly = true;
@@ -249,16 +280,15 @@ in
         message = "Homelab workload configurations require a dedicated servicePrincipal.";
       }
     ];
-    home.packages = lib.optional (cfg.imageSources != [ ] || servicePrincipal.module == "tree-eclass") pkgs.podman;
+    home.packages = lib.optional runsContainers pkgs.podman;
     homelab.metrics.enable = lib.mkDefault (
-      cfg.imageSources != [ ] || servicePrincipal.module == "tree-eclass" || servicePrincipal.name == "metrics"
+      runsContainers || servicePrincipal.name == "metrics"
     );
     xdg.configFile = lib.mkMerge [
       { "containers/policy.json".source = ./containers/policy.json; }
       {
         "containers/systemd/apps-net.network" = lib.mkIf (
-          (cfg.imageSources != [ ] || servicePrincipal.module == "tree-eclass")
-          && !builtins.elem servicePrincipal.name [ "nginx" "transmission" ]
+          runsContainers && !builtins.elem servicePrincipal.name [ "nginx" "transmission" ]
         ) {
           text = renderNetwork ./containers/apps-net.network;
           onChange = "homelabChangedNetworks+=(apps-net-network.service)";
@@ -271,7 +301,7 @@ in
           name = "containers/systemd/${builtins.baseNameOf source}";
           value.onChange =
             "homelabChangedContainers+=(${lib.removeSuffix ".container" (builtins.baseNameOf source)}.service)";
-        }) cfg.imageSources
+        }) (cfg.imageSources ++ map (key: cfg.selfBuilt.${key}.source) builtKeys)
       ))
     ];
     systemd.user.targets.homelab = {

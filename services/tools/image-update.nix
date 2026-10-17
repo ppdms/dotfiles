@@ -19,7 +19,7 @@ let
     cp ${./image_age.py} "$out/image_age.py"
     cp ${./image_registry.py} "$out/image_registry.py"
     cp ${./image_publication.py} "$out/image_publication.py"
-    cp ${./tree_image_inputs.py} "$out/tree_image_inputs.py"
+    cp ${./dockerfile_inputs.py} "$out/dockerfile_inputs.py"
     cp ${./principals.py} "$out/principals.py"
   '';
 in

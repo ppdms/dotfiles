@@ -72,6 +72,10 @@ More: [Daily use](docs/daily-use.md).
 - [Backups and recovery](docs/backups-and-recovery.md)
 - [Updating](docs/updating.md) — including the server's unattended updates.
 - [The server, in short](docs/server.md) — structure and trust.
+- [Self-built images](docs/self-built-images.md) — building and releasing
+  images from a local checkout.
+- [SilverBullet customizations](docs/silverbullet.md) — where the editor
+  client, service wiring and space style each live.
 - [Words used in this repository](docs/glossary.md) — technical terms,
   defined once.
 - Application details: [Codex sandbox setting](docs/codex-sandbox.md) ·

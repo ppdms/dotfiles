@@ -17,6 +17,8 @@ let
   deployment = systemConfig.homelab;
   definitions = registry.definitions;
   roleHome = name: definitions.${name}.home;
+  # Services built from a local checkout (services/self-built.nix).
+  selfBuilt = registry.selfBuilt;
   updaterFeed = "${roleHome "image-updates"}/image-feed";
   roleConfig =
     role:
@@ -81,6 +83,7 @@ let
           deployment.services.metrics
           && !builtins.elem role.name [
             "image-updates"
+            "image-builds"
             "secrets-export"
             "vpn-ddns"
           ];
@@ -262,6 +265,14 @@ let
       ++ lib.optional deployment.services.tree-eclass (
         view "image-updates" deployment.paths.treeCheckout "${roleHome "image-updates"}/checkout" false { }
       )
+      # Each self-built checkout is visible read-only so its Dockerfile's base
+      # images are observed on a timer. A missing checkout is skipped, not fatal.
+      ++ lib.mapAttrsToList (
+        name: image:
+        view "image-updates" image.checkout "${roleHome "image-updates"}/checkouts/${name}" false {
+          optional = true;
+        }
+      ) selfBuilt
     )
     ++ lib.optionals (builtins.hasAttr "backrest" roles) [
       (view "backrest" deployment.paths.checkout "${roleHome "backrest"}/checkout" false { })
@@ -375,6 +386,34 @@ let
     imageUpdate = images;
     treeCheckout = deployment.paths.treeCheckout;
   };
+  imageBuildJournal = "/var/lib/homelab/image-builds";
+  imageBuildSpec = pkgs.writeText "homelab-image-builds.json" (
+    builtins.toJSON {
+      schema = 1;
+      builder = "image-builds";
+      recovery = imageBuildJournal;
+      images = lib.mapAttrs (
+        _: image:
+        {
+          inherit (image)
+            repository
+            checkout
+            dockerfile
+            principal
+            unit
+            container
+            serve
+            revisionBuildArg
+            ;
+        }
+      ) selfBuilt;
+    }
+  );
+  imageBuild = pkgs.callPackage ../../services/tools/image-build.nix {
+    python3 = secrets.python;
+    imageUpdate = images;
+    buildSpec = imageBuildSpec;
+  };
   runtimeUnits = map (role: "user-runtime-dir@${toString role.uid}.service") (
     builtins.attrValues roles
   );
@@ -451,6 +490,9 @@ in
   ++ lib.optionals deployment.services.tree-eclass [
     "d /var/lib/homelab/tree-releases 0755 root root -"
   ]
+  ++ lib.optionals (selfBuilt != { }) [
+    "d ${imageBuildJournal} 0700 root root -"
+  ]
   ++ lib.optionals deployment.services.ingress [
     "d ${registry.origin.directory} 2750 ${definitions.nginx.account} ${registry.origin.group} -"
   ];
@@ -472,7 +514,8 @@ in
         provision
         repository
       ]
-      ++ lib.optional deployment.services.tree-eclass treeDev;
+      ++ lib.optional deployment.services.tree-eclass treeDev
+      ++ lib.optional (selfBuilt != { }) imageBuild;
       programs.git.settings.safe.directory = [ imageFeed ];
     };
   };
@@ -488,6 +531,7 @@ in
     homelabCreds = creds;
     homelabTern = tern;
     homelabTreeDev = treeDev;
+    homelabImageBuild = imageBuild;
   };
   systemd.services = lib.mkMerge [
     (lib.mkIf enabled {

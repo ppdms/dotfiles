@@ -35,6 +35,9 @@ units. Service modules are in `services/`; system configuration is in
   activates committed application code. A root-owned admission guard
   prevents starts during incomplete recovery. See
   [Tree application releases](updating.md#tree-application-releases).
+- **Self-built images.** A service may run an image built on the server from
+  committed code in a local checkout. Only the upstream base images are
+  age-gated; the code is yours. See [Self-built images](self-built-images.md).
 
 ## Locale
 
@@ -50,6 +53,7 @@ login session; existing processes retain their inherited locale variables.
 | The accounts services run as                         | `services/service-accounts.nix`, created by `machines/server/accounts.nix` |
 | Boot, disks, firewall, the approved-update mechanism | `machines/server/system.nix`, `machines/server/runtime.nix`                |
 | The credential broker and other server tools         | `services/tools/`                                                          |
+| Which services are built from a local checkout       | `services/self-built.nix`; the checkout paths are in the private settings  |
 | Which services are enabled                           | The private settings; not this repository                                  |
 
 ## Credential editing

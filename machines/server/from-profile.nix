@@ -73,6 +73,7 @@ let
     tern = server.config.system.build.homelabTern;
     image-update = server.config.system.build.homelabImageUpdate;
     tree-dev = server.config.system.build.homelabTreeDev;
+    image-build = server.config.system.build.homelabImageBuild;
     runtime-images = server.config.system.build.homelabImageSpec;
     quadlet-manifests = server.config.system.build.homelabQuadletManifests;
     service-principals = server.config.system.build.homelabPrincipals;
@@ -114,6 +115,10 @@ assert lib.assertMsg (
     tree-dev = {
       type = "app";
       program = "${instancePackages.tree-dev}/bin/tree-dev";
+    };
+    image-build = {
+      type = "app";
+      program = "${instancePackages.image-build}/bin/homelab-image-build";
     };
   };
 }

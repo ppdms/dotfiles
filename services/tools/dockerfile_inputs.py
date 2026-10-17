@@ -1,8 +1,14 @@
-"""Seven-day quarantine for upstream Tree build images (base layers only).
+"""Seven-day quarantine for the upstream FROM images of a self-built Dockerfile.
 
-Local Tree code and locally built RUN/COPY layers are never gated. Every
-external FROM image (including compiler/build stages) and all of its OCI
-blobs must be observed for seven days before production may use it.
+Local code and locally built RUN/COPY layers are never gated. Every external
+FROM image (including compiler/build stages) and all of its OCI blobs must be
+observed for seven days before a build may use it. The gate is independent of
+which service the Dockerfile belongs to.
+
+Per-declared-base observations live in the shared observation state under
+``build_inputs``. Earlier releases stored them under ``tree_inputs``;
+``build_inputs()`` folds that key into the new one on first access so no
+quarantine progress is lost.
 """
 
 from __future__ import annotations
@@ -17,11 +23,14 @@ from pathlib import Path
 from image_age import AgeError, AgeStore
 from image_registry import Registry, RegistryError
 
-__all__ = ["TreeInputsError", "collect_inputs", "render_dockerfile"]
+__all__ = ["BUILD_INPUTS_KEY", "DockerfileInputsError", "build_inputs", "collect_inputs", "render_dockerfile"]
+
+BUILD_INPUTS_KEY = "build_inputs"
+LEGACY_INPUTS_KEY = "tree_inputs"
 
 
-class TreeInputsError(ValueError):
-    """Fail-closed Tree input error (unresolved ref, changed file, young base)."""
+class DockerfileInputsError(ValueError):
+    """Fail-closed Dockerfile input error (unresolved ref, changed file, young base)."""
 
 
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -64,7 +73,7 @@ def _logical_lines(physical: list[str]) -> list[dict]:
         accumulated = ""
         while True:
             if index >= total:
-                raise TreeInputsError("Dockerfile ends with line continuation '\\'")
+                raise DockerfileInputsError("Dockerfile ends with line continuation '\\'")
             line = physical[index]
             code = line.rstrip()
             if code.endswith("\\"):
@@ -90,19 +99,19 @@ def _instruction(line: str) -> tuple[str, str] | None:
 def _split_declared(declared: str) -> tuple[str, str]:
     """Split a FROM image into (repository, tag-or-digest) for Registry.inspect."""
     if not declared or any(char.isspace() for char in declared):
-        raise TreeInputsError(f"invalid FROM image {declared!r}")
+        raise DockerfileInputsError(f"invalid FROM image {declared!r}")
     if "$" in declared:
-        raise TreeInputsError(f"unresolved FROM image {declared!r}")
+        raise DockerfileInputsError(f"unresolved FROM image {declared!r}")
     if not _REF_CHARS_RE.fullmatch(declared):
-        raise TreeInputsError(f"unsupported FROM image {declared!r}")
+        raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
     if declared.count("@") > 1:
-        raise TreeInputsError(f"unsupported FROM image {declared!r}")
+        raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
     if "@" in declared:
         repo_tag, digest = declared.split("@", 1)
         if not repo_tag or not digest:
-            raise TreeInputsError(f"unsupported FROM image {declared!r}")
+            raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
         if not _DIGEST_RE.fullmatch(digest) and not re.fullmatch(r"[0-9a-f]{64}", digest):
-            raise TreeInputsError(f"unsupported FROM digest {declared!r}")
+            raise DockerfileInputsError(f"unsupported FROM digest {declared!r}")
         reference = digest if digest.startswith("sha256:") else f"sha256:{digest}"
         repository = _strip_tag(repo_tag)
         _check_repository(repository, declared)
@@ -114,7 +123,7 @@ def _split_declared(declared: str) -> tuple[str, str]:
             repository, tag = declared, "latest"
         _check_repository(repository, declared)
         if not _TAG_RE.fullmatch(tag):
-            raise TreeInputsError(f"unsupported FROM tag {declared!r}")
+            raise DockerfileInputsError(f"unsupported FROM tag {declared!r}")
         return (repository, tag)
     _check_repository(declared, declared)
     return (declared, "latest")
@@ -131,18 +140,18 @@ def _strip_tag(repo_tag: str) -> str:
 
 def _check_repository(repository: str, declared: str) -> None:
     if not repository or "@" in repository or "$" in repository:
-        raise TreeInputsError(f"unsupported FROM image {declared!r}")
+        raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
     if "/" in repository:
         first, rest = repository.split("/", 1)
         if not first or not rest:
-            raise TreeInputsError(f"unsupported FROM image {declared!r}")
+            raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
         if "." in first or ":" in first or first == "localhost":
             if ":" in rest:
-                raise TreeInputsError(f"unsupported FROM image {declared!r}")
+                raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
         elif ":" in repository:
-            raise TreeInputsError(f"unsupported FROM image {declared!r}")
+            raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
     elif ":" in repository:
-        raise TreeInputsError(f"unsupported FROM image {declared!r}")
+        raise DockerfileInputsError(f"unsupported FROM image {declared!r}")
 
 
 def _validate_stage_ref(value: str, aliases: set[str], total: int, where: str) -> None:
@@ -152,16 +161,16 @@ def _validate_stage_ref(value: str, aliases: set[str], total: int, where: str) -
     ):
         candidate = candidate[1:-1]
     if not candidate or "$" in candidate:
-        raise TreeInputsError(f"{where} has an unresolved stage {value!r}")
+        raise DockerfileInputsError(f"{where} has an unresolved stage {value!r}")
     if candidate.isdigit():
         if 0 <= int(candidate) < total:
             return
-        raise TreeInputsError(
+        raise DockerfileInputsError(
             f"{where} refers to unknown stage {value!r}; declare the external image with FROM so it can be quarantined"
         )
     if candidate.lower() in aliases:
         return
-    raise TreeInputsError(
+    raise DockerfileInputsError(
         f"{where} refers to {value!r}, which is not a declared build stage; "
         "declare the external image with FROM so it can be quarantined"
     )
@@ -180,50 +189,50 @@ def _parse_dockerfile(text: str) -> dict:
         if parsed is None or parsed[0] != "FROM":
             continue
         if entry["start"] != entry["end"]:
-            raise TreeInputsError(f"unsupported multi-line FROM on lines {entry['start'] + 1}-{entry['end'] + 1}")
+            raise DockerfileInputsError(f"unsupported multi-line FROM on lines {entry['start'] + 1}-{entry['end'] + 1}")
         number = entry["start"] + 1
         code = _strip_trailing_comment(entry["text"])
         tokens = code.split()
         if not tokens or tokens[0].upper() != "FROM":
-            raise TreeInputsError(f"unsupported FROM syntax on line {number}")
+            raise DockerfileInputsError(f"unsupported FROM syntax on line {number}")
         cursor = 1
         while cursor < len(tokens) and tokens[cursor].startswith("--"):
             flag = tokens[cursor]
             if flag == "--platform":
                 cursor += 1
                 if cursor >= len(tokens):
-                    raise TreeInputsError(f"FROM on line {number} is missing its --platform value")
+                    raise DockerfileInputsError(f"FROM on line {number} is missing its --platform value")
                 if "$" in tokens[cursor] or not tokens[cursor]:
-                    raise TreeInputsError(f"unresolved FROM --platform on line {number}")
+                    raise DockerfileInputsError(f"unresolved FROM --platform on line {number}")
                 cursor += 1
             elif flag.startswith("--platform="):
                 value = flag[len("--platform=") :]
                 if not value or "$" in value:
-                    raise TreeInputsError(f"unresolved FROM --platform on line {number}")
+                    raise DockerfileInputsError(f"unresolved FROM --platform on line {number}")
                 cursor += 1
             else:
-                raise TreeInputsError(f"unsupported FROM flag {flag!r} on line {number}")
+                raise DockerfileInputsError(f"unsupported FROM flag {flag!r} on line {number}")
         if cursor >= len(tokens):
-            raise TreeInputsError(f"FROM on line {number} is missing its image")
+            raise DockerfileInputsError(f"FROM on line {number} is missing its image")
         image = tokens[cursor]
         cursor += 1
         if "$" in image:
-            raise TreeInputsError(
+            raise DockerfileInputsError(
                 f"unresolved FROM image {image!r} on line {number}; declare an explicit image reference"
             )
         if not _REF_CHARS_RE.fullmatch(image):
-            raise TreeInputsError(f"unsupported FROM image {image!r} on line {number}")
+            raise DockerfileInputsError(f"unsupported FROM image {image!r} on line {number}")
         alias: str | None = None
         if cursor < len(tokens):
             if len(tokens) - cursor != 2 or tokens[cursor].upper() != "AS" or not tokens[cursor + 1]:
-                raise TreeInputsError(f"unsupported FROM syntax on line {number}")
+                raise DockerfileInputsError(f"unsupported FROM syntax on line {number}")
             alias = tokens[cursor + 1]
             if "$" in alias or not _ALIAS_RE.fullmatch(alias):
-                raise TreeInputsError(f"unsupported FROM stage name {alias!r} on line {number}")
+                raise DockerfileInputsError(f"unsupported FROM stage name {alias!r} on line {number}")
         low = image.lower()
         if low == "scratch" or low.startswith("scratch:") or low.startswith("scratch@"):
             if low != "scratch":
-                raise TreeInputsError(f"unsupported FROM image {image!r} on line {number}")
+                raise DockerfileInputsError(f"unsupported FROM image {image!r} on line {number}")
             if alias is not None:
                 aliases.add(alias.lower())
             total += 1
@@ -234,7 +243,7 @@ def _parse_dockerfile(text: str) -> dict:
                     aliases.add(alias.lower())
                 total += 1
                 continue
-            raise TreeInputsError(f"FROM on line {number} refers to unknown stage {image!r}")
+            raise DockerfileInputsError(f"FROM on line {number} refers to unknown stage {image!r}")
         lowered = low
         if lowered in aliases:
             if alias is not None:
@@ -243,8 +252,8 @@ def _parse_dockerfile(text: str) -> dict:
             continue
         try:
             repository, reference = _split_declared(image)
-        except TreeInputsError as error:
-            raise TreeInputsError(f"line {number}: {error}") from None
+        except DockerfileInputsError as error:
+            raise DockerfileInputsError(f"line {number}: {error}") from None
         occurrences.append(
             {
                 "declared": image,
@@ -267,7 +276,7 @@ def _parse_dockerfile(text: str) -> dict:
             aliases.add(alias.lower())
         total += 1
     if total == 0:
-        raise TreeInputsError("Dockerfile contains no FROM instructions")
+        raise DockerfileInputsError("Dockerfile contains no FROM instructions")
     # COPY/ADD --from and RUN --mount from= may only name internal stages.
     # Unknown or external names would implicitly pull a young image.
     for entry in logical:
@@ -285,7 +294,7 @@ def _parse_dockerfile(text: str) -> dict:
                 if token == "--from":
                     cursor += 1
                     if cursor >= len(tokens):
-                        raise TreeInputsError(f"{name} on line {number} is missing its --from value")
+                        raise DockerfileInputsError(f"{name} on line {number} is missing its --from value")
                     _validate_stage_ref(
                         tokens[cursor],
                         aliases,
@@ -296,7 +305,7 @@ def _parse_dockerfile(text: str) -> dict:
                 elif token.startswith("--from="):
                     value = token[len("--from=") :]
                     if not value:
-                        raise TreeInputsError(f"{name} on line {number} is missing its --from value")
+                        raise DockerfileInputsError(f"{name} on line {number} is missing its --from value")
                     _validate_stage_ref(
                         value,
                         aliases,
@@ -305,7 +314,7 @@ def _parse_dockerfile(text: str) -> dict:
                     )
                     cursor += 1
                 elif token.startswith("--from"):
-                    raise TreeInputsError(f"unsupported {name} flag {token!r} on line {number}")
+                    raise DockerfileInputsError(f"unsupported {name} flag {token!r} on line {number}")
                 else:
                     cursor += 1
         elif name == "RUN":
@@ -317,17 +326,17 @@ def _parse_dockerfile(text: str) -> dict:
                 if token == "--mount":
                     cursor += 1
                     if cursor >= len(tokens) or tokens[cursor].startswith("--"):
-                        raise TreeInputsError(f"RUN on line {number} is missing its --mount value")
+                        raise DockerfileInputsError(f"RUN on line {number} is missing its --mount value")
                     _check_mount(tokens[cursor], aliases, total, number)
                     cursor += 1
                 elif token.startswith("--mount="):
                     spec = token[len("--mount=") :]
                     if not spec:
-                        raise TreeInputsError(f"RUN on line {number} is missing its --mount value")
+                        raise DockerfileInputsError(f"RUN on line {number} is missing its --mount value")
                     _check_mount(spec, aliases, total, number)
                     cursor += 1
                 elif token.startswith("--mount"):
-                    raise TreeInputsError(f"unsupported RUN flag {token!r} on line {number}")
+                    raise DockerfileInputsError(f"unsupported RUN flag {token!r} on line {number}")
                 elif "=" in token:
                     cursor += 1
                 else:
@@ -362,27 +371,60 @@ def _check_mount(spec: str, aliases: set[str], total: int, number: int) -> None:
 
 def _check_artifact(declared: str, repository: str, artifact: dict) -> None:
     if not isinstance(artifact, dict):
-        raise RegistryError(f"Tree base {declared}: invalid registry response")
+        raise RegistryError(f"Base image {declared}: invalid registry response")
     for key in ("reference", "manifest", "config", "layers"):
         if key not in artifact:
-            raise RegistryError(f"Tree base {declared}: invalid registry response")
+            raise RegistryError(f"Base image {declared}: invalid registry response")
     manifest = artifact["manifest"]
     if not isinstance(manifest, str) or not _DIGEST_RE.fullmatch(manifest):
-        raise RegistryError(f"Tree base {declared}: invalid manifest digest")
+        raise RegistryError(f"Base image {declared}: invalid manifest digest")
     expected = f"{repository}@{manifest}"
     if artifact.get("reference") != expected:
         raise RegistryError(
-            f"Tree base {declared}: registry returned {artifact.get('reference')!r}, expected {expected!r}"
+            f"Base image {declared}: registry returned {artifact.get('reference')!r}, expected {expected!r}"
         )
 
 
+def _bucket_map(value: object) -> dict[str, dict]:
+    if not isinstance(value, dict) or not all(isinstance(bucket, dict) for bucket in value.values()):
+        raise AgeError("invalid build_inputs observation state")
+    return value
+
+
+def build_inputs(store: AgeStore) -> dict[str, dict]:
+    """Return the per-declared-base observations, migrating the legacy key.
+
+    Age evidence itself lives in the store's per-digest ``content`` times and is
+    never touched here, so folding the old key in cannot reset a quarantine.
+    Where both keys exist every declared base and manifest from either is kept;
+    for a manifest present in both, the newer key's fields win over the old.
+    """
+    data = store.data
+    current = _bucket_map(data.get(BUILD_INPUTS_KEY, {}))
+    if LEGACY_INPUTS_KEY in data:
+        try:
+            legacy = _bucket_map(data[LEGACY_INPUTS_KEY])
+        except AgeError:
+            raise AgeError(f"invalid {LEGACY_INPUTS_KEY} observation state") from None
+        merged: dict[str, dict] = {declared: dict(bucket) for declared, bucket in legacy.items()}
+        for declared, bucket in current.items():
+            target = merged.setdefault(declared, {})
+            for manifest, artifact in bucket.items():
+                older = target.get(manifest)
+                if isinstance(older, dict) and isinstance(artifact, dict):
+                    target[manifest] = {**older, **artifact}
+                else:
+                    target[manifest] = artifact
+        data[BUILD_INPUTS_KEY] = merged
+        del data[LEGACY_INPUTS_KEY]
+        return merged
+    return data.setdefault(BUILD_INPUTS_KEY, current)
+
+
 def _eligible_fallback(store: AgeStore, declared: str, latest_manifest: str) -> dict | None:
-    tree_inputs = store.data.get("tree_inputs", {})
-    if not isinstance(tree_inputs, dict):
-        raise AgeError("invalid tree_inputs observation state")
-    bucket = tree_inputs.get(declared, {})
+    bucket = build_inputs(store).get(declared, {})
     if not isinstance(bucket, dict):
-        raise AgeError("invalid tree_inputs observation state")
+        raise AgeError("invalid build_inputs observation state")
     best: dict | None = None
     best_key: tuple[float, float, float, str] | None = None
     for manifest, artifact in bucket.items():
@@ -435,14 +477,12 @@ def collect_inputs(
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        raise TreeInputsError("Dockerfile is not valid UTF-8") from None
+        raise DockerfileInputsError("Dockerfile is not valid UTF-8") from None
     parsed = _parse_dockerfile(text)
     unique: list[dict] = parsed["unique"]
     if not unique:
-        raise TreeInputsError("Dockerfile declares no external base images")
-    if not isinstance(store.data.get("tree_inputs", {}), dict):
-        raise AgeError("invalid tree_inputs observation state")
-    store.data.setdefault("tree_inputs", {})
+        raise DockerfileInputsError("Dockerfile declares no external base images")
+    build_inputs(store)
     active: Registry = registry if registry is not None else Registry()
     latest: dict[str, dict] = {}
     for item in unique:
@@ -456,14 +496,14 @@ def collect_inputs(
         except (RegistryError, AgeError, OSError, ValueError) as error:
             store.save()
             if isinstance(error, RegistryError):
-                raise RegistryError(f"Tree base {declared}: {error}", status=error.status) from None
+                raise RegistryError(f"Base image {declared}: {error}", status=error.status) from None
             if isinstance(error, AgeError):
-                raise AgeError(f"Tree base {declared}: {error}") from None
-            raise TreeInputsError(f"Tree base {declared}: {error}") from None
-        bucket = store.data["tree_inputs"].setdefault(declared, {})
+                raise AgeError(f"Base image {declared}: {error}") from None
+            raise DockerfileInputsError(f"Base image {declared}: {error}") from None
+        bucket = store.data[BUILD_INPUTS_KEY].setdefault(declared, {})
         if not isinstance(bucket, dict):
             store.save()
-            raise AgeError("invalid tree_inputs observation state")
+            raise AgeError("invalid build_inputs observation state")
         bucket[artifact["manifest"]] = artifact
         latest[declared] = artifact
     if not require_aged:
@@ -472,15 +512,15 @@ def collect_inputs(
             try:
                 deadline = store.eligible_at(artifact)
             except AgeError as error:
-                raise AgeError(f"Tree base {declared}: {error}") from None
+                raise AgeError(f"Base image {declared}: {error}") from None
             if deadline is not None and store.now >= deadline:
                 print(
-                    f"Tree base {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)})",
+                    f"Base image {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)})",
                     file=sys.stderr,
                 )
             else:
                 print(
-                    f"Tree base {declared}: {artifact['manifest']} quarantined "
+                    f"Base image {declared}: {artifact['manifest']} quarantined "
                     f"until {_deadline_text(deadline)} ({store.evidence_source(artifact)})",
                     file=sys.stderr,
                 )
@@ -500,14 +540,14 @@ def collect_inputs(
                 continue
         except AgeError as error:
             store.save()
-            raise AgeError(f"Tree base {declared}: {error}") from None
+            raise AgeError(f"Base image {declared}: {error}") from None
         fallback = _eligible_fallback(store, declared, artifact["manifest"])
         if fallback is None:
             try:
                 deadline = store.eligible_at(artifact)
             except AgeError as error:
                 store.save()
-                raise AgeError(f"Tree base {declared}: {error}") from None
+                raise AgeError(f"Base image {declared}: {error}") from None
             blocked.append(
                 f"{declared} {artifact['manifest']} quarantined until "
                 f"{_deadline_text(deadline)} (no aged artifact for this source)"
@@ -516,7 +556,7 @@ def collect_inputs(
             selected[declared] = fallback
     if blocked:
         store.save()
-        raise TreeInputsError("Tree production blocked: " + "; ".join(blocked))
+        raise DockerfileInputsError("Image build blocked: " + "; ".join(blocked))
     for item in unique:
         declared = item["declared"]
         repository = item["repository"]
@@ -528,10 +568,10 @@ def collect_inputs(
             store.save()
             if isinstance(error, RegistryError):
                 raise RegistryError(
-                    f"Tree base {declared}: revalidation failed: {error}",
+                    f"Base image {declared}: revalidation failed: {error}",
                     status=error.status,
                 ) from None
-            raise TreeInputsError(f"Tree base {declared}: revalidation failed: {error}") from None
+            raise DockerfileInputsError(f"Base image {declared}: revalidation failed: {error}") from None
         if (
             checked.get("reference") != artifact.get("reference")
             or checked.get("manifest") != artifact.get("manifest")
@@ -539,26 +579,26 @@ def collect_inputs(
             or checked.get("layers") != artifact.get("layers")
         ):
             store.save()
-            raise TreeInputsError(
-                f"Tree base {declared}: immutable artifact {artifact['manifest']} changed at the registry"
+            raise DockerfileInputsError(
+                f"Base image {declared}: immutable artifact {artifact['manifest']} changed at the registry"
             )
         try:
             store.observe(checked)
             if not store.eligible(checked):
                 deadline = store.eligible_at(checked)
                 store.save()
-                raise TreeInputsError(
-                    f"Tree base {declared}: {artifact['manifest']} quarantined until {_deadline_text(deadline)}"
+                raise DockerfileInputsError(
+                    f"Base image {declared}: {artifact['manifest']} quarantined until {_deadline_text(deadline)}"
                 )
         except AgeError as error:
             store.save()
-            raise AgeError(f"Tree base {declared}: {error}") from None
+            raise AgeError(f"Base image {declared}: {error}") from None
     store.save()
     for declared in latest:
         artifact = selected[declared]
         if artifact["manifest"] == latest[declared]["manifest"]:
             print(
-                f"Tree base {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)})",
+                f"Base image {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)})",
                 file=sys.stderr,
             )
         else:
@@ -567,7 +607,7 @@ def collect_inputs(
             except AgeError:
                 deadline = None
             print(
-                f"Tree base {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)}) "
+                f"Base image {declared}: {artifact['manifest']} eligible ({store.evidence_source(artifact)}) "
                 f"(latest {latest[declared]['manifest']} quarantined until "
                 f"{_deadline_text(deadline)})",
                 file=sys.stderr,
@@ -596,7 +636,7 @@ def _render_line(line: str, declared: str, pinned: str, number: int) -> str:
         comment = body[match.start() :]
     spans = [(item.group(0), item.start(), item.end()) for item in re.finditer(r"\S+", code)]
     if not spans or spans[0][0].upper() != "FROM":
-        raise TreeInputsError(f"provenance mismatch on Dockerfile line {number}")
+        raise DockerfileInputsError(f"provenance mismatch on Dockerfile line {number}")
     cursor = 1
     while cursor < len(spans) and spans[cursor][0].startswith("--"):
         flag = spans[cursor][0]
@@ -605,9 +645,9 @@ def _render_line(line: str, declared: str, pinned: str, number: int) -> str:
         elif flag.startswith("--platform="):
             cursor += 1
         else:
-            raise TreeInputsError(f"unsupported FROM flag {flag!r} on line {number}")
+            raise DockerfileInputsError(f"unsupported FROM flag {flag!r} on line {number}")
     if cursor >= len(spans) or spans[cursor][0] != declared:
-        raise TreeInputsError(f"provenance mismatch on Dockerfile line {number}")
+        raise DockerfileInputsError(f"provenance mismatch on Dockerfile line {number}")
     _, start, end = spans[cursor]
     return code[:start] + pinned + code[end:] + comment + ending
 
@@ -617,31 +657,31 @@ def render_dockerfile(dockerfile: Path, spec: dict) -> str:
     data = dockerfile.read_bytes()
     digest = _dockerfile_digest(data)
     if not isinstance(spec, dict) or spec.get("schema") != 1:
-        raise TreeInputsError("invalid Tree inputs specification")
+        raise DockerfileInputsError("invalid Dockerfile inputs specification")
     if spec.get("dockerfile_digest") != digest:
-        raise TreeInputsError(
+        raise DockerfileInputsError(
             f"Dockerfile {dockerfile} changed since observation "
             f"(current {digest} != pinned {spec.get('dockerfile_digest')!r}); "
-            "re-run tree-inputs to re-observe"
+            "re-run inputs to re-observe"
         )
     images = spec.get("images")
     if not isinstance(images, dict):
-        raise TreeInputsError("invalid Tree inputs specification")
+        raise DockerfileInputsError("invalid Dockerfile inputs specification")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        raise TreeInputsError("Dockerfile is not valid UTF-8") from None
+        raise DockerfileInputsError("Dockerfile is not valid UTF-8") from None
     parsed = _parse_dockerfile(text)
     declared_set = {item["declared"] for item in parsed["unique"]}
     if set(images) != declared_set:
-        raise TreeInputsError(
-            "Tree inputs provenance mismatch: Dockerfile declares "
+        raise DockerfileInputsError(
+            "Dockerfile inputs provenance mismatch: Dockerfile declares "
             f"{sorted(declared_set)} but specification pins {sorted(images)}; "
-            "re-run tree-inputs"
+            "re-run inputs"
         )
     for declared, artifact in images.items():
         if not isinstance(artifact, dict):
-            raise TreeInputsError(f"invalid pinned artifact for {declared!r}")
+            raise DockerfileInputsError(f"invalid pinned artifact for {declared!r}")
         manifest = artifact.get("manifest")
         config = artifact.get("config")
         layers = artifact.get("layers")
@@ -657,10 +697,10 @@ def render_dockerfile(dockerfile: Path, spec: dict) -> str:
             or not isinstance(reference, str)
             or "@" not in reference
         ):
-            raise TreeInputsError(f"invalid pinned artifact for {declared!r}")
+            raise DockerfileInputsError(f"invalid pinned artifact for {declared!r}")
         repository = _split_declared(declared)[0]
         if reference != f"{repository}@{manifest}":
-            raise TreeInputsError(
+            raise DockerfileInputsError(
                 f"provenance mismatch for {declared!r}: pinned {reference!r} does not match {repository}@{manifest}"
             )
     lines = text.splitlines(keepends=True)

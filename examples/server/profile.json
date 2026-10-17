@@ -143,6 +143,12 @@
           "transmission": true,
           "tree-eclass": true,
           "vpn-ddns": true
+        },
+        "selfBuilt": {
+          "silverbullet": {
+            "checkout": "/home/example/Developer/silverbullet",
+            "serve": true
+          }
         }
       }
     }

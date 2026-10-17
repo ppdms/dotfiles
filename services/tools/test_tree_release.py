@@ -21,6 +21,7 @@ sys.path.insert(0, str(TOOLS))
 spec = importlib.util.spec_from_file_location("tree_release", TOOLS / "tree-dev.py")
 tree = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tree)
+import image_build
 
 OLD = "sha256:" + "1" * 64
 CANDIDATE = "sha256:" + "2" * 64
@@ -275,7 +276,7 @@ class Runtime:
             if image is None:
                 return self.result(1, stderr="image missing")
             if arguments[3] == "{{json .Labels}}":
-                labels = self.case.labels if image == CANDIDATE else {tree.REVISION_LABEL: "b" * 40}
+                labels = self.case.labels if image == CANDIDATE else {image_build.REVISION_LABEL: "b" * 40}
                 return self.result(stdout=json.dumps(labels))
             return self.result(stdout=image + "\n")
         if arguments[0] == "build":
@@ -360,37 +361,37 @@ class ReleaseLifecycleTests(unittest.TestCase):
         self.store = tree.RecoveryStore(self.recovery)
         self.specification = {
             "schema": 1,
-            "dockerfile_digest": tree.dockerfile_digest(self.checkout / "Dockerfile"),
+            "dockerfile_digest": image_build.dockerfile_digest(self.checkout / "Dockerfile"),
             "images": {"docker.io/example/base:1": {"reference": "docker.io/example/base@sha256:" + "3" * 64}},
         }
         self.rendered = "FROM docker.io/example/base@sha256:" + "3" * 64 + "\n"
         self.labels = {
-            tree.REVISION_LABEL: REVISION,
-            tree.BASE_IMAGES_LABEL: tree.base_provenance(self.specification),
-            tree.DOCKERFILE_DIGEST_LABEL: self.specification["dockerfile_digest"],
+            image_build.REVISION_LABEL: REVISION,
+            image_build.base_images_label(tree.LABEL_NAMESPACE): image_build.base_provenance(self.specification),
+            image_build.dockerfile_digest_label(tree.LABEL_NAMESPACE): self.specification["dockerfile_digest"],
         }
         self.runtime = Runtime(self)
+        identity = {
+            "uid": os.geteuid(),
+            "gid": os.getegid(),
+            "home": str(self.root),
+            "stateRoot": str(self.root),
+        }
         patches = [
             patch.dict(
                 os.environ, {"HOMELAB_TREE_CHECKOUT": str(self.checkout), "HOMELAB_TREE_RECOVERY": str(self.recovery)}
             ),
-            patch.object(
-                tree,
-                "principal",
-                return_value={
-                    "uid": os.geteuid(),
-                    "gid": os.getegid(),
-                    "home": str(self.root),
-                    "stateRoot": str(self.root),
-                },
-            ),
+            patch.object(tree, "principal", return_value=identity),
             patch.object(
                 tree, "principal_for_unit", side_effect=lambda unit: "tree-dev" if "-dev" in unit else "tree-eclass"
             ),
             patch.object(tree, "tool", side_effect=lambda name: name),
             patch.object(tree, "prod_state", return_value=self.prod),
             patch.object(tree, "run_as", side_effect=self.runtime.run_as),
-            patch.object(tree, "stream_image", side_effect=self.runtime.transfer),
+            patch.object(image_build, "principal", return_value=identity),
+            patch.object(image_build, "tool", side_effect=lambda name: name),
+            patch.object(image_build, "run_as", side_effect=self.runtime.run_as),
+            patch.object(image_build, "stream_image", side_effect=self.runtime.transfer),
             patch.object(tree.subprocess, "run", side_effect=self.runtime.process),
             patch.object(tree.subprocess, "Popen", side_effect=self.runtime.archive),
             patch.object(tree.time, "time", side_effect=self.runtime.tick),
@@ -436,6 +437,34 @@ class ReleaseLifecycleTests(unittest.TestCase):
         self.assertEqual(self.runtime.images["tree-eclass"][STABLE], OLD)
         self.assertEqual((self.prod / ".predeploy-manual/keep").read_bytes(), b"operator-owned checkpoint")
         self.assertIn("start:" + OLD, self.runtime.events)
+
+    def test_production_build_command_line_is_unchanged(self):
+        self.runtime.images["tree-dev"].pop(f"localhost/tree-eclass:{REVISION}")
+        self.deploy()
+        builds = [
+            arguments for event in self.runtime.events if isinstance(event, tuple)
+            for role, arguments in [event] if role == "tree-dev" and arguments[0] == "build"
+        ]
+        self.assertEqual(len(builds), 1)
+        context = builds[0][-1]
+        self.assertEqual(
+            builds[0],
+            (
+                "build",
+                "--pull=never",
+                "-f",
+                str(Path(context) / ".homelab.Dockerfile"),
+                "--label",
+                f"org.opencontainers.image.revision={REVISION}",
+                "--label",
+                "io.homelab.tree.base-images=" + image_build.base_provenance(self.specification),
+                "--label",
+                "io.homelab.tree.dockerfile-digest=" + self.specification["dockerfile_digest"],
+                "-t",
+                f"localhost/tree-eclass:{REVISION}",
+                context,
+            ),
+        )
 
     def test_migration_failure_restores_real_database_wal_settings_objects_and_identity(self):
         self.runtime.migration_failure = "failure"

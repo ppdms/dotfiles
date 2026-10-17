@@ -25,6 +25,27 @@ let
     }
   ) config.homelab.core.imageSources;
   specification = pkgs.writeText "homelab-service-images.json" (builtins.toJSON services);
+  selfBuilt = import ./self-built.nix { inherit lib systemConfig; };
+  # Dockerfiles of every locally built image, as the updater sees them: each
+  # checkout is a read-only view (machines/server/accounts.nix), so the
+  # upstream base images can be observed for the 7-day quarantine without
+  # anyone running a command.
+  buildInputs =
+    lib.optional systemConfig.homelab.services.tree-eclass {
+      name = "tree-eclass";
+      dockerfile = "${systemConfig.homelab.paths.treeCheckout}/Dockerfile";
+    }
+    ++ lib.mapAttrsToList (name: image: {
+      inherit name;
+      dockerfile = "${servicePrincipal.home}/checkouts/${name}/${image.dockerfile}";
+    }) selfBuilt;
+  buildInputsSpecification = pkgs.writeText "homelab-build-inputs.json" (
+    builtins.toJSON {
+      schema = 1;
+      images = buildInputs;
+    }
+  );
+  observesBuilds = servicePrincipal.name == "image-updates" && buildInputs != [ ];
 in
 {
   config = lib.mkIf config.homelab.core.enable {
@@ -59,20 +80,19 @@ in
       };
       Install.WantedBy = [ "homelab.target" ];
     };
-    systemd.user.services.homelab-tree-image-observe = lib.mkIf (servicePrincipal.name == "image-updates" && systemConfig.homelab.services.tree-eclass) {
+    systemd.user.services.homelab-build-inputs-observe = lib.mkIf observesBuilds {
       Unit = {
-        Description = "Observe upstream Tree build images and their layers";
+        Description = "Observe the upstream base images of locally built service images";
         PartOf = [ "homelab.target" ];
-        ConditionPathExists = "${systemConfig.homelab.paths.treeCheckout}/Dockerfile";
       };
       Service = {
         Type = "oneshot";
-        ExecStart = "${updater}/bin/homelab-image-update tree-inputs --dockerfile ${lib.escapeShellArg "${systemConfig.homelab.paths.treeCheckout}/Dockerfile"}";
+        ExecStart = "${updater}/bin/homelab-image-update observe-builds --spec ${buildInputsSpecification}";
         UMask = "0077";
         TimeoutStartSec = "10min";
       };
     };
-    systemd.user.timers.homelab-tree-image-observe = lib.mkIf (servicePrincipal.name == "image-updates" && systemConfig.homelab.services.tree-eclass) {
+    systemd.user.timers.homelab-build-inputs-observe = lib.mkIf observesBuilds {
       Unit.PartOf = [ "homelab.target" ];
       Timer = {
         OnBootSec = "10min";
