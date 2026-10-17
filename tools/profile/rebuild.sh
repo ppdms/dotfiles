@@ -11,10 +11,11 @@ Render the selected sealed profile, then switch the selected host.
                  also select the latest already-approved local image-feed HEAD.
                  The private profile override is never written to public locks.
   --no-switch    Render (and optionally update) without activating anything.
-  --only P       NixOS only: switch only principal P's Home Manager account
-                 (e.g. --only readeck). Refuses when anything outside that
-                 account's home-manager unit changed; run a full rebuild
-                 for shared or system-level changes.
+  --only P       NixOS only: assert the switch touches only principal P's
+                 Home Manager account (e.g. --only readeck); refuses when
+                 anything outside it changed. Without --only, the same
+                 check runs automatically: when exactly one account
+                 changed, the switch is scoped to it and says so.
   --platform     Selected platform (default: detected from the operating system).
   --state-dir    Private state root (default: NIX_CONFIG_STATE_DIR or XDG state).
   -h, --help     Show this help.
@@ -121,17 +122,52 @@ restore_backrest() {
     backrest_ctl start backrest.service ||
         { printf 'rebuild: Backrest did not start; run: sudo systemctl --user -M homelab-backrest@ start backrest.service\n' >&2; return 1; }
 }
+scope_changed_hm=()
+scope_changed_other=()
+detect_switch_scope() {
+    # Classify the restart-relevant difference between the running system
+    # and a built toplevel: home-manager unit files (one per account) go to
+    # scope_changed_hm, everything else (other systemd unit files,
+    # /etc/homelab payloads, kernel/initrd/systemd links) to
+    # scope_changed_other. Symlinks are compared by target.
+    local system="$1" current="${HOMELAB_CURRENT_SYSTEM:-/run/current-system}"
+    local rel root
+    scope_changed_hm=()
+    scope_changed_other=()
+    for root in etc/systemd/system etc/homelab; do
+        [[ -d "$current/$root" || -d "$system/$root" ]] || continue
+        while IFS= read -r rel; do
+            if [[ -L "$current/$root/$rel" || -L "$system/$root/$rel" ]]; then
+                [[ "$(readlink "$current/$root/$rel" 2>/dev/null)" == "$(readlink "$system/$root/$rel" 2>/dev/null)" ]] && continue
+            elif cmp -s "$current/$root/$rel" "$system/$root/$rel" 2>/dev/null; then
+                continue
+            fi
+            if [[ "$root" == etc/systemd/system ]]; then
+                case "$rel" in
+                    home-manager-*.service|*/home-manager-*.service) scope_changed_hm+=("$rel"); continue ;;
+                esac
+            fi
+            scope_changed_other+=("$root/$rel")
+        done < <(
+            (cd "$current/$root" 2>/dev/null && find . \( -type f -o -type l \) -printf '%P\n';
+             cd "$system/$root" 2>/dev/null && find . \( -type f -o -type l \) -printf '%P\n') | sort -u
+        )
+    done
+    for rel in kernel initrd systemd; do
+        if [[ "$(readlink "$current/$rel" 2>/dev/null)" != "$(readlink "$system/$rel" 2>/dev/null)" ]]; then
+            scope_changed_other+=("$rel")
+        fi
+    done
+}
 only_target_changed=0
 guard_only_switch() {
-    # Fail closed: an --only switch may proceed only when the single file
-    # that can restart anything outside the target account — its
-    # home-manager unit — is the only difference in the restart-relevant
-    # system surface (all systemd unit files, /etc/homelab payloads, and
-    # the kernel/initrd/systemd links). Everything else needs a full
+    # Fail closed: an --only switch may proceed only when the target
+    # account's home-manager unit is the sole difference in the surface
+    # classified by detect_switch_scope. Everything else needs a full
     # rebuild, whose state-unit and Backrest handling stays authoritative.
-    local system="$1" current=/run/current-system
+    local system="$1"
     local new_units="$system/etc/systemd/system"
-    local target="" file rel root changed_other=()
+    local target="" file changed_other=()
     only_target_changed=0
     for file in "$new_units"/home-manager-*.service; do
         [[ -e "$file" ]] || continue
@@ -143,28 +179,11 @@ guard_only_switch() {
         printf 'rebuild: --only %s: no home-manager account matches this principal\n' "$only" >&2
         return 1
     fi
-    cmp -s "$current/etc/systemd/system/$(basename "$target")" "$target" || only_target_changed=1
-    for root in etc/systemd/system etc/homelab; do
-        [[ -d "$current/$root" || -d "$system/$root" ]] || continue
-        while IFS= read -r rel; do
-            [[ "$root/$rel" == "etc/systemd/system/$(basename "$target")" ]] && continue
-            if [[ -L "$current/$root/$rel" || -L "$system/$root/$rel" ]]; then
-                # Symlinks (including linked directories): compare targets.
-                [[ "$(readlink "$current/$root/$rel" 2>/dev/null)" == "$(readlink "$system/$root/$rel" 2>/dev/null)" ]] \
-                    || changed_other+=("$root/$rel")
-            elif [[ ! -e "$current/$root/$rel" || ! -e "$system/$root/$rel" ]] \
-                || ! cmp -s "$current/$root/$rel" "$system/$root/$rel" 2>/dev/null; then
-                changed_other+=("$root/$rel")
-            fi
-        done < <(
-            (cd "$current/$root" 2>/dev/null && find . \( -type f -o -type l \) -printf '%P\n';
-             cd "$system/$root" 2>/dev/null && find . \( -type f -o -type l \) -printf '%P\n') | sort -u
-        )
-    done
-    for file in kernel initrd systemd; do
-        if [[ "$(readlink "$current/$file" 2>/dev/null)" != "$(readlink "$system/$file" 2>/dev/null)" ]]; then
-            changed_other+=("$file")
-        fi
+    detect_switch_scope "$system"
+    cmp -s "/run/current-system/etc/systemd/system/$(basename "$target")" "$target" || only_target_changed=1
+    changed_other=("${scope_changed_other[@]}")
+    for file in "${scope_changed_hm[@]}"; do
+        [[ "$file" == "$(basename "$target")" ]] || changed_other+=("etc/systemd/system/$file")
     done
     if (( ${#changed_other[@]} )); then
         printf 'rebuild: --only %s refused; changes outside the target account require a full rebuild:\n' "$only" >&2
@@ -173,6 +192,19 @@ guard_only_switch() {
         return 1
     fi
     return 0
+}
+run_switch() {
+    # Activate the toplevel built above directly. `nixos-rebuild switch`
+    # would evaluate the flake a second time (tens of seconds) only to build
+    # this same output, then do exactly these two steps: register the system
+    # profile generation, then run switch-to-configuration.
+    local system="$1" status=0
+    sudo nix-env --profile /nix/var/nix/profiles/system --set "$system" || status=$?
+    if (( ! status )); then
+        sudo "$system/bin/switch-to-configuration" switch || status=$?
+    fi
+    restore_backrest || (( status )) || status=1
+    return "$status"
 }
 switch_nixos() {
     local flake="path:$state_dir/deployment" system unit changed=0 status=0
@@ -196,12 +228,28 @@ switch_nixos() {
             trap restore_backrest EXIT
             backrest_ctl stop backrest.service
         fi
-        sudo nix-env --profile /nix/var/nix/profiles/system --set "$system" || status=$?
-        if (( ! status )); then
-            sudo "$system/bin/switch-to-configuration" switch || status=$?
+        run_switch "$system"
+        return $?
+    fi
+    # Automatic scoping: when the built system differs from the running one
+    # in exactly one account's home-manager unit and nothing else in the
+    # guarded surface, only that account can restart. Say so, and skip the
+    # state-unit Backrest handling (those units are unchanged by proof).
+    detect_switch_scope "$system"
+    if (( ${#scope_changed_other[@]} == 0 && ${#scope_changed_hm[@]} == 1 )); then
+        local scoped_name
+        scoped_name="$(basename "${scope_changed_hm[0]}" .service)"
+        scoped_name="${scoped_name#home-manager-}"
+        scoped_name="${scoped_name//\\x2d/-}"
+        printf 'rebuild: only %s changed; scoped switch (other accounts untouched)\n' "$scoped_name" >&2
+        if [[ "$scoped_name" == homelab-backrest ]] && [[ "$(backrest_ctl is-active backrest.service || true)" == active ]]; then
+            printf 'rebuild: stopping Backrest for the scoped switch (a running backup is interrupted)\n' >&2
+            backrest_stopped=1
+            trap restore_backrest EXIT
+            backrest_ctl stop backrest.service
         fi
-        restore_backrest || (( status )) || status=1
-        return "$status"
+        run_switch "$system"
+        return $?
     fi
     for unit in "${state_units[@]}"; do
         cmp -s "/run/current-system/etc/systemd/system/$unit" "$system/etc/systemd/system/$unit" || changed=1
@@ -213,16 +261,8 @@ switch_nixos() {
         trap restore_backrest EXIT
         backrest_ctl stop backrest.service
     fi
-    # Activate the toplevel built above directly. `nixos-rebuild switch`
-    # would evaluate the flake a second time (tens of seconds) only to build
-    # this same output, then do exactly these two steps: register the system
-    # profile generation, then run switch-to-configuration.
-    sudo nix-env --profile /nix/var/nix/profiles/system --set "$system" || status=$?
-    if (( ! status )); then
-        sudo "$system/bin/switch-to-configuration" switch || status=$?
-    fi
-    restore_backrest || (( status )) || status=1
-    return "$status"
+    run_switch "$system"
+    return $?
 }
 if (( ! no_switch )); then
     if [[ "$platform" == darwin ]]; then
