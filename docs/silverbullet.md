@@ -9,10 +9,9 @@ of them is generated from another.
 | **The image** | `Dockerfile.source` in that fork | How the fork becomes a container image |
 | **Service wiring** (container, mounts, ingress) | `services/silverbullet.nix`, `services/containers/silverbullet.container`, `services/self-built.nix`, `services/config/ingress/nginx/sites*/notes*.conf` (this repository) | Image source, ports, volumes, health |
 | **Which image runs** | the private settings, `homelab.selfBuilt.silverbullet` | Checkout path; `serve` on or off |
-| **Space configuration and style** | `~/notes/Library/Local/CONFIG.md`, `STYLE.md` | Mode commands/shortcuts, fonts and colours, `--live-editor-*` / `--reader-*` variables |
+| **Space configuration and style** | the space's own `CONFIG.md`, `STYLE.md` | Mode commands/shortcuts, fonts and colours, `--live-editor-*` / `--reader-*` variables |
 
-The space's own tooling — habit tracker, fonts, scripts — lives in
-`~/notes/Library/Local/{Habits,Fonts,Scripts,Extras}/`.
+The space's own tooling lives alongside them in the vault.
 
 The server runs as the `homelab-silverbullet` account, not as your user.
 `~/notes` is that account's vault: edit it through SilverBullet, or with `sudo`.
