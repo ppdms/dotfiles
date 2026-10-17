@@ -117,6 +117,15 @@ yours is, and where its checkout lives, is private settings:
 
 Edit the settings with `bash tools/profile/edit-profile.sh`, then rebuild.
 
+**Once, after pulling this feature:** the schema gained a defaulted `selfBuilt`
+object, so the settings the tool expects now differ from the plain copy it
+rendered last time. `edit-profile.sh` and `rebuild.sh` then stop with
+`Refusing to overwrite locally changed profile metadata; seal first or use
+--force`. Nothing is wrong with your settings: run
+`bash tools/profile/seal-profile.sh` once. It checks the plain copy, adds the
+empty default, and re-seals; the plain and sealed copies then agree again.
+Do not use `--force`: it replaces the plain copy rather than reconciling it.
+
 `serve` decides what the service runs:
 
 - `false` (the default): the image is built and staged as `:stable`, but the
