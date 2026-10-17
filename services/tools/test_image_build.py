@@ -55,6 +55,7 @@ class Runtime:
         self.health = {OLD: "healthy", OLDER: "healthy", CANDIDATE: "healthy"}
         self.build_arguments = []
         self.build_timeouts = []
+        self.context_entrypoint_mode = None
         self.dirty = False
         self.young = False
         self.build_failure = False
@@ -118,6 +119,7 @@ class Runtime:
         content = io.BytesIO()
         with tarfile.open(fileobj=content, mode="w") as archive:
             archive.add(self.case.checkout / "Dockerfile.source", arcname="Dockerfile.source")
+            archive.add(self.case.checkout / "docker-entrypoint.sh", arcname="docker-entrypoint.sh")
         content.seek(0)
         process = Mock(stdout=content)
         process.wait.return_value = 0
@@ -210,6 +212,8 @@ class Runtime:
             self.case.assertIn("--pull=never", arguments)
             self.events.append("build")
             self.build_arguments.append(arguments)
+            entrypoint = Path(arguments[-1]) / "docker-entrypoint.sh"
+            self.context_entrypoint_mode = stat.S_IMODE(entrypoint.stat().st_mode)
             if self.build_failure:
                 return self.result(1, stderr="build failed")
             labels = {}
@@ -261,6 +265,9 @@ class ImageBuildCase(unittest.TestCase):
         self.checkout = self.root / "checkout"
         (self.checkout / ".git").mkdir(parents=True)
         (self.checkout / "Dockerfile.source").write_text("FROM docker.io/example/base:1\n")
+        entrypoint = self.checkout / "docker-entrypoint.sh"
+        entrypoint.write_text("#!/bin/sh\n")
+        entrypoint.chmod(0o755)
         self.recovery = self.root / "journal"
         self.specification = {
             "schema": 1,
@@ -650,6 +657,14 @@ class RevisionBuildArgumentTests(ImageBuildCase):
         self.assertEqual(self.run_cli("deploy", "example")[0], 0)
         arguments = self.runtime.build_arguments[0]
         self.assertEqual(arguments[arguments.index("--build-arg") + 1], f"SOURCE_REVISION={REVISION}")
+
+    def test_build_context_keeps_committed_entrypoint_permissions(self):
+        # Build tools copy context modes into the image. Squeezing the
+        # committed 0755 entrypoint to owner-only bits leaves a non-root
+        # container user able to execute but not read it, so bash fails
+        # with "Permission denied" before the entrypoint runs.
+        self.assertEqual(self.run_cli("deploy", "example")[0], 0)
+        self.assertEqual(self.runtime.context_entrypoint_mode, 0o755)
 
 
 class BuildTimeoutTests(ImageBuildCase):

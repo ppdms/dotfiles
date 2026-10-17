@@ -406,7 +406,11 @@ def build_image(
                 path = Path(directory) / name
                 os.chown(path, identity["uid"], identity["gid"], follow_symlinks=False)
                 if not path.is_symlink():
-                    path.chmod((path.stat().st_mode & 0o700) | 0o600 if path.is_file() else 0o700)
+                    # Keep the committed permission bits: build tools copy them
+                    # into the image, so squeezing a 0755 entrypoint to 0700
+                    # would leave it unreadable to a non-root container user.
+                    # The 0700 context directory still blocks other accounts.
+                    path.chmod((path.stat().st_mode & 0o777) | 0o600 if path.is_file() else 0o700)
         arguments = [
             "build",
             "--pull=never",
