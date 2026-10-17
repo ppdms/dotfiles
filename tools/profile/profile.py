@@ -671,6 +671,19 @@ def check_input_local(args):
 
 def publish_input(args, files):
     check_input_local(args)
+    hashes = {relative: hashlib.sha256(data).hexdigest() for relative, data in files.items()}
+    previous = current_input(args)
+    if previous is not None and not getattr(args, "force", False):
+        manifest = parse_json(read_file(previous.parent / (previous.name + ".json"), "rendered input manifest"),
+                              "rendered input manifest")
+        # check_input_local has already verified the on-disk files match the
+        # manifest, so an identical manifest means the previous immutable
+        # generation already holds exactly these files. Reusing it keeps the
+        # deployment lock (and with it Nix's evaluation cache) stable across
+        # rebuilds whose rendered profile did not change. --force skips the
+        # reuse so a forced render always publishes a fresh generation.
+        if manifest == hashes:
+            return
     generations = args.state_dir / ".profile-inputs"
     secure_directory(generations)
     generation = uuid.uuid4().hex
@@ -681,7 +694,7 @@ def publish_input(args, files):
         for relative, data in files.items():
             atomic_file(destination / relative, data)
         atomic_file(generations / (generation + ".json"),
-                    json_bytes({relative: hashlib.sha256(data).hexdigest() for relative, data in files.items()}))
+                    json_bytes(hashes))
         os.symlink(str(Path(".profile-inputs") / generation), temporary_link)
         os.replace(temporary_link, args.state_dir / "input")
     except BaseException:

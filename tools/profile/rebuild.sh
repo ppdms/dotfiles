@@ -116,7 +116,10 @@ switch_nixos() {
     # Build first, without privileges: it can outlast sudo's credential cache.
     system="$(nix build --no-link --print-out-paths --no-write-lock-file \
         "$flake#nixosConfigurations.$hostname.config.system.build.toplevel")"
-    sudo -k -v
+    # Invalidate, then validate: combined `sudo -k -v` prompts but discards
+    # the credential, so the next sudo command would prompt a second time.
+    sudo -k
+    sudo -v
     for unit in "${state_units[@]}"; do
         cmp -s "/run/current-system/etc/systemd/system/$unit" "$system/etc/systemd/system/$unit" || changed=1
     done

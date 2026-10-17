@@ -659,5 +659,39 @@ class BackrestEncryptedRoundtripTests(unittest.TestCase):
         self.assert_projection_excludes_runtime()
 
 
+class PublishInputReuseTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.args = SimpleNamespace(state_dir=Path(self.temporary.name) / "state", force=False)
+        self.files = {"profile.json": b"{}\n", "flake.nix": b"{ }\n"}
+
+    def generations(self):
+        root = self.args.state_dir / ".profile-inputs"
+        return sorted(path for path in root.iterdir() if path.is_dir()) if root.is_dir() else []
+
+    def test_unchanged_files_reuse_generation_and_changed_files_publish_new_one(self):
+        profile.publish_input(self.args, self.files)
+        first = profile.current_input(self.args)
+        profile.publish_input(self.args, dict(self.files))
+        self.assertEqual(profile.current_input(self.args), first)
+        self.assertEqual(self.generations(), [first])
+
+        profile.publish_input(self.args, {**self.files, "profile.json": b'{"changed":true}\n'})
+        second = profile.current_input(self.args)
+        self.assertNotEqual(second, first)
+        self.assertEqual(self.generations(), sorted([first, second]))
+        # The superseded generation stays intact for concurrent Nix readers.
+        self.assertEqual((first / "profile.json").read_bytes(), self.files["profile.json"])
+
+    def test_locally_edited_generation_is_not_reused_or_overwritten(self):
+        profile.publish_input(self.args, self.files)
+        first = profile.current_input(self.args)
+        (first / "profile.json").write_bytes(b"local edit\n")
+        with self.assertRaises(profile.ProfileError):
+            profile.publish_input(self.args, dict(self.files))
+        self.assertEqual(profile.current_input(self.args), first)
+
+
 if __name__ == "__main__":
     unittest.main()
