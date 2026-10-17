@@ -10,6 +10,16 @@
       init.defaultBranch = "main";
       push.autoSetupRemote = true;
       alias.now = "!f() { git add . && git commit -a -m \"$(date +%s)\"; }; f";
+      credential = {
+        "https://github.com".helper = [
+          ""
+          "!gh auth git-credential"
+        ];
+        "https://gist.github.com".helper = [
+          ""
+          "!gh auth git-credential"
+        ];
+      };
     }
     // lib.optionalAttrs (systemConfig.user.gitSigningKey != null) {
       gpg.format = "ssh";
