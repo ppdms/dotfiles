@@ -21,7 +21,8 @@ import subprocess
 import tarfile
 import tempfile
 
-from dockerfile_pins import unified_patch
+from dockerfile_inputs import _parse_dockerfile, _render_line, _split_declared
+from dockerfile_pins import qualify, unified_patch
 from principals import principal, run_as, stream_image, tool
 
 REVISION_LABEL = "org.opencontainers.image.revision"
@@ -235,16 +236,58 @@ def authorize_bases(
     return specification, rendered_path
 
 
-def check_pin_rewrite(original: str, rewritten: str) -> None:
-    """A proposal may change FROM lines only; anything else is not a pin."""
-    before, after = original.splitlines(keepends=True), rewritten.splitlines(keepends=True)
+def expected_pin_rewrite(original: str, bases: list) -> str:
+    """Re-derive the proposal locally: per base only the tag and the registry name may change."""
+    try:
+        parsed = _parse_dockerfile(original)
+        declared = {item["declared"]: item for item in parsed["unique"]}
+        proposals: dict[str, str] = {}
+        for base in bases:
+            name, proposed = base["declared"], base["proposed"]
+            if name in proposals:
+                raise BuildError(f"pin proposal lists {name} twice")
+            item = declared.get(name)
+            if item is None:
+                raise BuildError(f"pin proposal names {name}, which the Dockerfile does not declare")
+            if not isinstance(proposed, str):
+                raise BuildError(f"pin proposal for {name} is not a reference")
+            repository, reference = _split_declared(proposed)
+            qualified = qualify(item["repository"])
+            if repository != qualified:
+                raise BuildError(f"pin proposal retargets {name} to repository {repository}; expected {qualified}")
+            if item["reference"].startswith("sha256:"):
+                if proposed != f"{qualified}@{item['reference']}":
+                    raise BuildError(f"pin proposal changes the digest of {name}")
+            elif "@" in proposed:
+                raise BuildError(f"pin proposal replaces the tag of {name} with a digest")
+            proposals[name] = proposed
+        missing = sorted(set(declared) - set(proposals))
+        if missing:
+            raise BuildError(f"pin proposal omits {', '.join(missing)}")
+        lines = original.splitlines(keepends=True)
+        for occurrence in {entry["physical"]: entry for entry in parsed["occurrences"]}.values():
+            index, name = occurrence["physical"], occurrence["declared"]
+            if proposals[name] != name:
+                lines[index] = _render_line(lines[index], name, proposals[name], index + 1)
+    except (KeyError, TypeError, ValueError) as error:
+        if isinstance(error, BuildError):
+            raise
+        raise BuildError(f"pin proposal is not usable: {error}") from error
+    return "".join(lines)
+
+
+def check_pin_rewrite(original: str, rewritten: str, bases: list) -> None:
+    expected = expected_pin_rewrite(original, bases)
+    if rewritten == expected:
+        return
+    before, after = expected.splitlines(keepends=True), rewritten.splitlines(keepends=True)
     if len(before) != len(after):
         raise BuildError(f"pin proposal changed the Dockerfile line count ({len(before)} -> {len(after)})")
-    for number, (old, new) in enumerate(zip(before, after), 1):
-        if old == new:
-            continue
-        if any((line.split() or [""])[0].upper() != "FROM" for line in (old, new)):
-            raise BuildError(f"pin proposal changed line {number}, which is not a FROM line: {new.rstrip()!r}")
+    number = next(index for index, (left, right) in enumerate(zip(before, after), 1) if left != right)
+    line = after[number - 1].rstrip()
+    original_line = original.splitlines(keepends=True)[number - 1]
+    kind = "is not a FROM line" if (original_line.split() or [""])[0].upper() != "FROM" else "changes more than the tag or registry name"
+    raise BuildError(f"pin proposal changed line {number}, which {kind}: {line!r}")
 
 
 def propose_pins(target: BuildTarget, root: Path) -> dict:
@@ -285,7 +328,7 @@ def propose_pins(target: BuildTarget, root: Path) -> dict:
         raise BuildError("pin proposal has an unsupported schema")
     if digest != bytes_digest(raw):
         raise BuildError("pin proposal does not match the working-tree Dockerfile")
-    check_pin_rewrite(original, rewritten)
+    check_pin_rewrite(original, rewritten, response["bases"])
     return dict(response, patch=unified_patch(original, rewritten, target.dockerfile))
 
 

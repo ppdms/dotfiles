@@ -1,6 +1,7 @@
 import importlib.util
 import hashlib
 import io
+import re
 import json
 import os
 from pathlib import Path
@@ -63,6 +64,7 @@ class Runtime:
 
     def pin_response(self, raw):
         original = raw.decode()
+        declared = re.findall(r"^FROM (?:--\S+ )*(\S+)", original, re.M)
         rewritten = original.replace("docker.io/example/base:1\n", "docker.io/example/base:1.2.3\n")
         response = {
             "schema": 1,
@@ -72,18 +74,19 @@ class Runtime:
             "changed": rewritten != original,
             "bases": [
                 {
-                    "declared": "docker.io/example/base:1",
+                    "declared": name,
                     "repository": "docker.io/example/base",
                     "reference": "1",
                     "status": "pin",
                     "chosen": "1.2.3",
-                    "proposed": "docker.io/example/base:1.2.3",
+                    "proposed": name.replace(":1", ":1.2.3") if name.endswith(":1") else name,
                     "eligible_at": 1_700_000_000.0,
                     "evidence": "docker-hub",
                     "downgrade": False,
                     "checked": 1,
                     "reason": "",
                 }
+                for name in declared
             ],
             "rewritten": rewritten,
         }
@@ -577,6 +580,67 @@ class PinTests(ImageBuildCase):
         code, out, err = self.run_cli("pin", "example")
         self.assertEqual((code, out), (1, ""))
         self.assertIn("line count", err)
+
+
+class PinRetargetTests(ImageBuildCase):
+    def propose(self, dockerfile, tamper=None, bases=None):
+        (self.checkout / "Dockerfile.source").write_text(dockerfile)
+
+        def apply(response):
+            if bases is not None:
+                response["bases"] = bases(response["bases"])
+            if tamper:
+                response["rewritten"] = tamper(response["rewritten"])
+
+        self.runtime.pin_tamper = apply
+        return self.run_cli("pin", "example")
+
+    def test_a_tag_change_and_registry_qualification_pass(self):
+        dockerfile = "FROM --platform=linux/amd64 node:1 AS client  # build\nFROM docker.io/example/base:1\n"
+        (self.checkout / "Dockerfile.source").write_text(dockerfile)
+
+        def qualify(response):
+            response["bases"][0]["proposed"] = "docker.io/library/node:1.2.3"
+            response["rewritten"] = response["rewritten"].replace(
+                "node:1 AS", "docker.io/library/node:1.2.3 AS"
+            )
+
+        self.runtime.pin_tamper = qualify
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual(code, 0, err)
+        self.assertIn("+FROM --platform=linux/amd64 docker.io/library/node:1.2.3 AS client  # build\n", out)
+
+    def test_a_different_repository_is_refused(self):
+        code, out, err = self.propose(
+            "FROM docker.io/library/node:1\n",
+            tamper=lambda text: text.replace("library/node:1", "evil/node:1"),
+            bases=lambda bases: [dict(bases[0], proposed="docker.io/evil/node:1")],
+        )
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("retargets docker.io/library/node:1 to repository docker.io/evil/node", err)
+
+    def test_a_changed_stage_alias_is_refused(self):
+        code, out, err = self.propose(
+            "FROM docker.io/example/base:1 AS client\n", tamper=lambda text: text.replace("AS client", "AS evil")
+        )
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("line 1", err)
+
+    def test_a_changed_platform_flag_is_refused(self):
+        code, out, err = self.propose(
+            "FROM --platform=linux/amd64 docker.io/example/base:1\n",
+            tamper=lambda text: text.replace("linux/amd64", "linux/arm64"),
+        )
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("line 1", err)
+
+    def test_a_base_the_dockerfile_does_not_declare_is_refused(self):
+        code, out, err = self.propose(
+            "FROM docker.io/example/base:1\n",
+            bases=lambda bases: bases + [dict(bases[0], declared="docker.io/other/app:2", proposed="docker.io/other/app:2.1")],
+        )
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("docker.io/other/app:2, which the Dockerfile does not declare", err)
 
 
 class RevisionBuildArgumentTests(ImageBuildCase):

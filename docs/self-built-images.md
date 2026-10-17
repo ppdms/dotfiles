@@ -132,9 +132,12 @@ newer tag has aged.
 checkout, takes the deploy lock, or touches the journal or any container. It
 reads the working-tree Dockerfile, so the patch applies to what you edit. The
 rewritten file is re-checked with the real gate (that is the "deployable now"
-line), only `FROM` lines may differ from your file, and the proposal is bound to
-the digest of the exact bytes it was computed from; a response that does not
-match is refused.
+line). The proposal comes from the unprivileged updater account, so the
+privileged side does not trust its text: it re-derives the patch itself from
+your file and the per-base `declared -> proposed` list, and refuses anything
+else. Only the tag (and a bare Docker Hub name made explicit) can change;
+never the repository, the stage alias, flags, comments or other lines. The
+proposal is also bound to the digest of the exact bytes it was computed from.
 
 **What it cannot do.** A tag with no version (`bookworm-slim`, `latest`) has no
 series to choose from and is reported `unpinnable`; choose a versioned tag by
