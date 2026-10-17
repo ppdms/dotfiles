@@ -3,7 +3,7 @@
   lib,
   pkgs,
   systemConfig,
-  profileRoot,
+  caCertificate,
   approvedDeployment,
   servicePrincipals,
   ...
@@ -100,7 +100,7 @@ in
   };
   # A manual switch is approval of the reviewed immutable configuration.
   security.sudo.wheelNeedsPassword = true;
-  security.pki.certificateFiles = [ (profileRoot + "/${deployment.caCertificateFile}") ];
+  security.pki.certificateFiles = [ caCertificate ];
   system.build.approvedDeployment = approvedDeployment;
   system.build.approvedDeploymentRuntime = approvalRuntime;
   system.extraDependencies = [ approvedDeployment ];

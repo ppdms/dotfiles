@@ -3,7 +3,7 @@
   lib,
   pkgs,
   systemConfig,
-  profileRoot,
+  caCertificate,
   servicePrincipal ? null,
   ...
 }:
@@ -34,7 +34,7 @@ let
       runtime="''${XDG_RUNTIME_DIR:?}/homelab-opencloud"
       install -d -m 0700 "$runtime"
       cat ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
-        ${lib.escapeShellArg (toString profileRoot + "/${systemConfig.homelab.caCertificateFile}")} \
+        ${lib.escapeShellArg (toString caCertificate)} \
         > "$runtime/tls-bundle.crt"
       chmod 0600 "$runtime/tls-bundle.crt"
     '';

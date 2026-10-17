@@ -22,6 +22,15 @@ let
   hostname = systemConfig.system.hostname;
   pkgs = nixpkgs.legacyPackages.${system};
   profileRoot = profile.outPath;
+  # The private root CA, copied into the store under a path derived from the
+  # file's own content. Reaching it as "${profileRoot}/trust/..." instead ties
+  # every store path that embeds it to the whole rendered profile input, so any
+  # settings edit, even one that leaves the certificate alone, would rebuild the
+  # CA bundle and the Quadlet of every service that trusts it, and restart them.
+  caCertificate = builtins.path {
+    path = profileRoot + "/${systemConfig.homelab.caCertificateFile}";
+    name = baseNameOf systemConfig.homelab.caCertificateFile;
+  };
   servicePrincipals = import ../../services/service-accounts.nix { inherit lib systemConfig; };
   # Where the server's container-image repository lives on the machine.
   # It comes from the selected settings, never from this repository.
@@ -39,6 +48,7 @@ let
       inherit
         systemConfig
         profileRoot
+        caCertificate
         imageFeed
         approvedDeployment
         servicePrincipals
@@ -53,7 +63,7 @@ let
         # Use ~/.nix-profile for packages and Git/GH credential helper references.
         home-manager.useUserPackages = false;
         home-manager.backupFileExtension = "hm-backup";
-        home-manager.extraSpecialArgs = { inherit profileRoot servicePrincipals; };
+        home-manager.extraSpecialArgs = { inherit profileRoot caCertificate servicePrincipals; };
         home-manager.users.${username} = {
           imports = [
             ../shared/home.nix

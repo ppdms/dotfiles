@@ -3,7 +3,7 @@
   lib,
   pkgs,
   systemConfig,
-  profileRoot,
+  caCertificate,
   imageFeed,
   servicePrincipal ? null,
   servicePrincipals,
@@ -37,7 +37,7 @@ let
     metrics-directory = servicePrincipals.metricsDirectory;
     host-loopback-address = servicePrincipals.hostLoopbackAddress;
     nginx-state-directory = "${servicePrincipal.home}/.local/state/homelab-nginx";
-    ca-certificate = toString profileRoot + "/${deployment.caCertificateFile}";
+    ca-certificate = toString caCertificate;
     instance = deployment.instance;
     display-name = deployment.displayName;
     public-session-name = deployment.publicSessionName;

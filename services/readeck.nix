@@ -3,7 +3,7 @@
   lib,
   pkgs,
   systemConfig,
-  profileRoot,
+  caCertificate,
   servicePrincipal ? null,
   ...
 }:
@@ -40,7 +40,7 @@ let
       runtime="''${XDG_RUNTIME_DIR:?}/homelab-readeck"
       install -d -m 0700 "$runtime"
       cat ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
-        ${lib.escapeShellArg (toString profileRoot + "/${systemConfig.homelab.caCertificateFile}")} \
+        ${lib.escapeShellArg (toString caCertificate)} \
         > "$runtime/ssl-ca-bundle.pem"
       chmod 0600 "$runtime/ssl-ca-bundle.pem"
       # Readeck reads the OIDC secret from env, not *_FILE. Assemble a
