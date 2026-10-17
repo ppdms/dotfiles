@@ -113,6 +113,23 @@ class CredentialBrokerTests(unittest.TestCase):
         self.assertNotIn(self.fields["restic-password"].encode(), ciphertext)
         self.assert_denied(43002, request("export", "backrest"))
 
+    def test_complete_read_validates_content_server_side(self):
+        own = self.broker.dispatch(43002, {"operation": "read", "component": "backrest", "complete": True})
+        self.assertEqual(base64.b64decode(own["payload"]), self.original)
+        # Shape-valid but incomplete: commit accepts it (complete=False),
+        # a complete read must refuse it.
+        replacement = payload_bytes("backrest", {"rclone.conf": self.fields["rclone.conf"]})
+        self.broker.dispatch(1000, request("store", "backrest", payload=base64.b64encode(replacement).decode(),
+                                           expected_digest=digest(self.original)))
+        # Plain reads still deliver the record (renewal/repair flows), but a
+        # complete read refuses content that fails credential_validation.
+        plain = self.broker.dispatch(43002, request("read", "backrest"))
+        self.assertEqual(base64.b64decode(plain["payload"]), replacement)
+        with self.assertRaises(ValueError):
+            self.broker.dispatch(43002, {"operation": "read", "component": "backrest", "complete": True})
+        with self.assertRaises(BrokerError):
+            self.broker.dispatch(43002, {"operation": "read", "component": "backrest", "complete": "yes"})
+
     def test_only_the_exact_mutable_field_can_be_changed_by_a_service(self):
         updated = "[GDrive]\ntype = drive\ntoken = refreshed\n"
         self.broker.dispatch(43002, request("mutable", "backrest", field="rclone.conf", value=updated,

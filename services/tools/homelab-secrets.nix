@@ -17,6 +17,14 @@ let
       path = ./homelab-secrets.py;
     }
     {
+      name = "credential_layout.py";
+      path = ./credential_layout.py;
+    }
+    {
+      name = "homelab_client.py";
+      path = ./homelab_client.py;
+    }
+    {
       name = "credential_validation.py";
       path = ./credential_validation.py;
     }

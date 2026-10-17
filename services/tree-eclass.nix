@@ -12,10 +12,7 @@ let
   leaf = if isDev then "tree-eclass-dev" else "tree-eclass";
   state = "${servicePrincipal.stateRoot}/${leaf}";
   helperName = if isDev then "homelab-tree-dev-state" else "homelab-tree-state";
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   originsArgument = lib.escapeShellArg (
     builtins.toJSON {
       hosts = [

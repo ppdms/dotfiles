@@ -13,6 +13,7 @@ let
     lanDomain = systemConfig.homelab.lanDomain;
     publicDomain = systemConfig.homelab.publicDomain;
   };
+  secretClient = pkgs.callPackage ./tools/homelab-client.nix { };
   secretsExport = pkgs.callPackage ./tools/secrets-export.nix {
     inherit secrets;
     stateRoot = servicePrincipal.stateRoot;
@@ -20,7 +21,7 @@ let
   persistMutable = pkgs.writeShellApplication {
     name = "homelab-persist-mutable-secrets";
     text = lib.concatMapStringsSep "\n" (component: ''
-      ${secrets}/bin/homelab-secrets persist ${lib.escapeShellArg component}
+      ${secretClient}/bin/homelab-secrets persist ${lib.escapeShellArg component}
     '') (lib.unique cfg.mutableComponents);
   };
 in

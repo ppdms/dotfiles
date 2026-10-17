@@ -16,38 +16,10 @@ from pathlib import Path
 
 import yaml
 
-FIELDS = {
-    "backrest": {"restic-password": "restic/restic-password", "rclone.conf": "rclone/rclone.conf"},
-    "authelia": {name: name for name in ("jwt-secret", "session-secret", "storage-encryption-key", "users.yml", "oidc-issuer.pem")},
-    "authelia-oidc": {name: name for name in ("forgejo", "immich", "jellyfin", "termix", "kavita")},
-    "nginx": {name: name for name in ("tls.crt", "tls.key", "tls-public.crt", "tls-public.key", "omp-web-token.conf")},
-    "alloy": {name: "env/" + name for name in ("GRAFANA_CLOUD_LOKI_URL", "GRAFANA_CLOUD_LOKI_USER", "GRAFANA_CLOUD_API_KEY", "GRAFANA_CLOUD_PROM_URL", "GRAFANA_CLOUD_PROM_USER", "GRAFANA_CLOUD_READ_TOKEN")},
-    "immich": {name: name for name in ("postgres-password", "db-username", "db-password", "db-name")},
-    "cloudflared": {"tunnel-token": "tunnel-token"},
-    "opencloud": {"opencloud.yaml": "opencloud.yaml"},
-    "termix": {"oidc-client-secret": "oidc-client-secret"},
-    "transmission": {"wireguard-private-key": "wireguard-private-key"},
-    "kavita": {"oidc-client-secret": "oidc-client-secret"},
-    "tree-eclass": {"provider-keys": "tree-eclass/provider-keys"},
-    "homeassistant": {"secrets.yaml": "secrets.yaml"},
-    "esphome": {"dashboard-password": "dashboard-password"},
-    "image-updates": {"github-token": "github-token"},
-    "vpn-ddns": {"api-token": "api-token"},
-    # Operator-only: no service principal lists it, so the broker never serves it
-    # to a service and boot-time initialization never asks for a seed.
-    "tern": {"stencil-refresh-token": "stencil-refresh-token"},
-}
-MUTABLE = {"backrest": "rclone.conf", "authelia": "users.yml"}
-# Fields a component works without. An empty optional field means "unset", so
-# adding one never blocks starting the consumers of an already-provisioned record.
-OPTIONAL = {"nginx": frozenset({"omp-web-token.conf"})}
+from credential_layout import FIELDS, MUTABLE, OPTIONAL, _field_shape, decode_payload, encode_payload, required_fields
 
 WEB_TOKEN_SNIPPET = re.compile(r'set \$omp_web_token "([A-Za-z0-9_-]{16,128})";\n?')
 STENCIL_REFRESH_TOKEN = re.compile(r"[\x21-\x7e]{16,8192}")
-
-
-def required_fields(component: str) -> list[str]:
-    return [name for name in FIELDS[component] if name not in OPTIONAL.get(component, ())]
 
 
 def web_token_snippet(token: str) -> str:
@@ -65,65 +37,9 @@ def web_token_from_snippet(snippet: str) -> str:
     return match[1]
 
 
-def _field_shape(component: str, fields: dict[str, str], complete: bool) -> None:
-    if not isinstance(component, str) or component not in FIELDS:
-        raise ValueError("credentials: unknown component")
-    if not isinstance(fields, dict):
-        raise ValueError("files: must be an object")
-    if any(not isinstance(name, str) or name not in FIELDS[component] for name in fields):
-        raise ValueError("files: contains an unknown field")
-    if complete:
-        for name in required_fields(component):
-            if name not in fields:
-                raise ValueError(f"{name}: required field is missing")
-    for name, value in fields.items():
-        if not isinstance(value, str):
-            raise ValueError(f"{name}: must be text")
-        if "\x00" in value:
-            raise ValueError(f"{name}: must not contain NUL")
-        try:
-            value.encode("utf-8")
-        except UnicodeEncodeError:
-            raise ValueError(f"{name}: must be valid UTF-8 text") from None
-
-
-def _unique_json(pairs: list[tuple[str, object]]) -> dict:
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("credentials: duplicate JSON key")
-        result[key] = value
-    return result
-
-
-def _invalid_json_constant(value: str) -> None:
-    raise ValueError("credentials: JSON constants must be finite")
-
-
 def parse_payload(component: str, data: bytes, complete: bool = True) -> dict[str, str]:
     """Read the version-1, single-service env/files credential contract."""
-    if not isinstance(component, str) or component not in FIELDS:
-        raise ValueError("credentials: unknown component")
-    if not isinstance(data, bytes):
-        raise ValueError("credentials: payload must be UTF-8 bytes")
-    try:
-        payload = json.loads(data.decode("utf-8"), object_pairs_hook=_unique_json,
-                             parse_constant=_invalid_json_constant)
-    except (UnicodeDecodeError, ValueError, RecursionError):
-        raise ValueError("credentials: invalid UTF-8 JSON or duplicate JSON key") from None
-    if not isinstance(payload, dict) or set(payload) != {"version", "services"}:
-        raise ValueError("credentials: expected version and services only")
-    if type(payload["version"]) is not int or payload["version"] != 1:
-        raise ValueError("version: must be integer 1")
-    services = payload["services"]
-    if not isinstance(services, dict) or set(services) != {component}:
-        raise ValueError("services: must contain only the selected component")
-    service = services[component]
-    if not isinstance(service, dict) or set(service) != {"env", "files"}:
-        raise ValueError("services: selected component must contain env and files only")
-    if not isinstance(service["env"], dict) or service["env"]:
-        raise ValueError("env: must be an empty object; secret environment variables are unsupported")
-    fields = service["files"]
+    fields = decode_payload(component, data)
     validate_fields(component, fields, complete=complete)
     return fields
 
@@ -134,9 +50,7 @@ def payload_bytes(component: str, fields: dict[str, str]) -> bytes:
     Call validate_fields or parse_payload before committing a credential. This
     serializer intentionally does not reject empty values in editor templates.
     """
-    _field_shape(component, fields, complete=False)
-    payload = {"version": 1, "services": {component: {"env": {}, "files": fields}}}
-    return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    return encode_payload(component, fields)
 
 
 class _UniqueSafeLoader(yaml.SafeLoader):
@@ -506,6 +420,11 @@ def validate_fields(component: str, fields: dict[str, str], complete: bool = Tru
         # it against Proton at startup. Non-empty check above suffices.
         pass
     elif component == "kavita":
+        # OIDC client secret plaintext; Authelia receives its verifier from
+        # the separate private authelia-oidc runtime credential bundle.
+        # Authelia validates it on token exchange.
+        pass
+    elif component == "readeck":
         # OIDC client secret plaintext; Authelia receives its verifier from
         # the separate private authelia-oidc runtime credential bundle.
         # Authelia validates it on token exchange.

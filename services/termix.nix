@@ -9,10 +9,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   termixState = "${servicePrincipal.stateRoot}/termix";
   termixRestore = "${systemConfig.homelab.restoreRoot}/termix/data";
   requireTermixState = pkgs.writeShellApplication {

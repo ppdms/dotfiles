@@ -9,10 +9,7 @@
 
 let
   state = "${servicePrincipal.stateRoot}/backrest";
-  secrets = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secrets = pkgs.callPackage ./tools/homelab-client.nix { };
   requireState = pkgs.writeShellApplication {
     name = "homelab-backrest-state";
     runtimeInputs = [ pkgs.coreutils ];

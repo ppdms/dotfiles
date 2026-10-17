@@ -9,10 +9,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   transmissionState = "${servicePrincipal.stateRoot}/transmission";
   transmissionRestore = "${systemConfig.homelab.restoreRoot}/transmission/transmission";
   requireTransmissionState = pkgs.writeShellApplication {

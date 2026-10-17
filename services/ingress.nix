@@ -9,10 +9,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   autheliaState = "${servicePrincipal.stateRoot}/authelia/data";
   requireAutheliaState = pkgs.writeShellApplication {
     name = "homelab-authelia-state";
@@ -58,16 +55,25 @@ let
       fi
     '';
   };
-  renderQuadlet = source: lib.replaceStrings
-    [ "@secret-helper@" "@state-helper@" "@nginx-state-helper@" "@nginx-config@" "@authelia-config@" ]
-    [
-      "${secretHelper}/bin/homelab-secrets"
-      "${requireAutheliaState}/bin/homelab-authelia-state"
-      "${requireNginxOrigin}/bin/homelab-nginx-origin"
-      "${config.homelab.core.renderConfigDirectory ./config/ingress/nginx}"
-      "${config.homelab.core.renderConfigDirectory ./config/ingress/authelia}"
-    ]
-    (config.homelab.core.renderQuadlet source);
+  # Substitute only this principal's placeholders: string contexts of unused
+  # replacements would otherwise make every ingress generation depend on
+  # both config directories and both state helpers.
+  renderQuadlet =
+    source:
+    let
+      replacements =
+        [ [ "@secret-helper@" "${secretHelper}/bin/homelab-secrets" ] ]
+        ++ lib.optionals (servicePrincipal.name == "authelia") [
+          [ "@state-helper@" "${requireAutheliaState}/bin/homelab-authelia-state" ]
+          [ "@authelia-config@" "${config.homelab.core.renderConfigDirectory ./config/ingress/authelia}" ]
+        ]
+        ++ lib.optionals (servicePrincipal.name == "nginx") [
+          [ "@nginx-state-helper@" "${requireNginxOrigin}/bin/homelab-nginx-origin" ]
+          [ "@nginx-config@" "${config.homelab.core.renderConfigDirectory ./config/ingress/nginx}" ]
+        ];
+    in
+    lib.replaceStrings (map builtins.head replacements) (map (pair: builtins.elemAt pair 1) replacements)
+      (config.homelab.core.renderQuadlet source);
 in
 {
   options.homelab.ingress.enable = lib.mkEnableOption "this principal's ingress service";

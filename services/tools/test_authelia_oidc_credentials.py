@@ -23,8 +23,9 @@ def load_module(name, filename):
 
 
 secrets = load_module("authelia_oidc_test_secrets", "homelab-secrets.py")
+import homelab_client as client_module
 
-CLIENTS = ("forgejo", "immich", "jellyfin", "termix", "kavita")
+CLIENTS = ("forgejo", "immich", "jellyfin", "termix", "kavita", "readeck")
 
 
 def fixture_verifier(client):
@@ -72,7 +73,7 @@ class AutheliaOIDCCredentialTests(unittest.TestCase):
     def test_runtime_verifier_files_are_private(self):
         encoded = payload_bytes("authelia-oidc", self.fields)
         with tempfile.TemporaryDirectory() as runtime, patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}), \
-                patch.object(secrets, "read_record", return_value=(encoded, hashlib.sha256(encoded).hexdigest())), \
+                patch.object(client_module, "read_record", return_value=(encoded, hashlib.sha256(encoded).hexdigest())), \
                 patch.object(sys, "argv", ["homelab-secrets", "prepare", "authelia-oidc"]):
             secrets.main()
             directory = Path(runtime) / "homelab-secrets" / "authelia-oidc"
@@ -86,7 +87,7 @@ class AutheliaOIDCCredentialTests(unittest.TestCase):
     def test_absent_runtime_bundle_blocks_with_named_missing_fields(self):
         diagnostics = io.StringIO()
         with tempfile.TemporaryDirectory() as runtime, patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}), \
-                patch.object(secrets, "read_record", return_value=(None, None)), \
+                patch.object(client_module, "read_record", return_value=(None, None)), \
                 patch.object(sys, "argv", ["homelab-secrets", "prepare", "authelia-oidc"]), \
                 redirect_stderr(diagnostics), self.assertRaises(RuntimeError):
             secrets.main()

@@ -63,6 +63,15 @@ bash tools/profile/rebuild.sh               # build and switch
 sudo systemctl --user -M homelab-readeck@ status readeck.service
 ```
 
+For a change confined to one service, `bash tools/profile/rebuild.sh
+--only <principal>` (e.g. `--only readeck`) switches only that account's
+Home Manager generation. It refuses, listing the offending paths, when
+anything outside that account's home-manager unit changed — shared
+helpers, other accounts, system units, `/etc/homelab` payloads, kernel —
+in which case a full rebuild is required. The Quadlet-side credential
+client (`homelab-client.nix`) is deliberately validation-free so that
+credential-validation edits restart only the broker, not every container.
+
 The service manager starts only after state preparation, credentials
 and image distribution succeed. A failed preparation leaves the
 service stopped.

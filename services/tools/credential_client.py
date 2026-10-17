@@ -63,8 +63,10 @@ def decode_bytes(value):
         raise CredentialError("Credential broker returned invalid encoded data") from None
 
 
-def read_record(component):
-    result = request("read", component)
+def read_record(component, complete=False):
+    # complete=True asks the broker to run full content validation
+    # (credential_validation) server-side before returning the record.
+    result = request("read", component, complete=True) if complete else request("read", component)
     value = result.get("payload")
     return (None if value is None else decode_bytes(value), result.get("digest"))
 

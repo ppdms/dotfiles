@@ -22,7 +22,7 @@ import tempfile
 import time
 
 from credential_client import MAX_MESSAGE, _unique, decode_bytes, request
-from credential_validation import FIELDS, MUTABLE, parse_payload, payload_bytes
+from credential_validation import FIELDS, MUTABLE, parse_payload, payload_bytes, validate_fields
 from principals import manifest, tool
 
 
@@ -240,13 +240,23 @@ class Broker:
             raise BrokerError("invalid")
         operation = message.get("operation")
         component = message.get("component")
-        if (not isinstance(operation, str) or operation not in self.KEYS
-                or set(message) != self.KEYS[operation] or not isinstance(component, str) or component not in FIELDS):
+        if not isinstance(operation, str) or operation not in self.KEYS or not isinstance(component, str) or component not in FIELDS:
+            raise BrokerError("invalid")
+        if operation == "read":
+            # "complete" is the only optional protocol key: it asks for full
+            # content validation (credential_validation) before delivery.
+            if set(message) not in ({"operation", "component"}, {"operation", "component", "complete"}) \
+                    or ("complete" in message and type(message["complete"]) is not bool):
+                raise BrokerError("invalid")
+        elif set(message) != self.KEYS[operation]:
             raise BrokerError("invalid")
         self.policy.authorize(uid, operation, component)
         with self.store.lock(component):
             original = self.store.read(component)
             if operation == "read":
+                if message.get("complete") and original is not None:
+                    # Raises ValueError, mapped to "invalid" by the handler.
+                    validate_fields(component, parse_payload(component, original, complete=False), complete=True)
                 return {"payload": None if original is None else base64.b64encode(original).decode(), "digest": digest(original)}
             if operation == "export":
                 encrypted = None if original is None else self.store.crypto.export(self.policy.registry["backup"]["ageRecipient"], original)

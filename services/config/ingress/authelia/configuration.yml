@@ -53,13 +53,13 @@ access_control:
       policy: bypass
     - domain: 'books.@public-domain@'
       policy: bypass
+    - domain: 'tldr.@lan-domain@'
+      policy: bypass
+    - domain: 'tldr.@public-domain@'
+      policy: bypass
     - domain: 'notes.@lan-domain@'
       policy: one_factor
     - domain: 'notes.@public-domain@'
-      policy: one_factor
-    - domain: 'tldr.@lan-domain@'
-      policy: one_factor
-    - domain: 'tldr.@public-domain@'
       policy: one_factor
     - domain: 'speedtest.@lan-domain@'
       policy: one_factor
@@ -116,6 +116,16 @@ identity_providers:
           - 'groups'
       # Kavita syncs application roles from the configured groups claim.
       kavita:
+        id_token:
+          - 'email'
+          - 'email_verified'
+          - 'preferred_username'
+          - 'name'
+          - 'groups'
+      # Readeck provisions accounts on first login and syncs roles from
+      # the groups claim (provider configured via READECK_AUTH_OIDC_*
+      # in services/containers/readeck.container).
+      readeck:
         id_token:
           - 'email'
           - 'email_verified'
@@ -296,6 +306,27 @@ identity_providers:
           - 'groups'
           # Kavita requests offline_access (refresh tokens) by default.
           - 'offline_access'
+      - client_id: 'readeck'
+        client_name: 'Readeck'
+        client_secret: {{ secret "/run/secrets/authelia-oidc/readeck" | msquote }}
+        public: false
+        authorization_policy: one_factor
+        claims_policy: readeck
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        # Readeck (Go oauth2) authenticates with client_secret_basic at
+        # the token endpoint; client_secret_post was rejected live (401).
+        token_endpoint_auth_method: 'client_secret_basic'
+        redirect_uris:
+          - 'https://tldr.@lan-domain@/login/oidc'
+          - 'https://tldr.@public-domain@/login/oidc'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
 theme: auto
 notifier:
   filesystem:

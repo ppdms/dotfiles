@@ -48,7 +48,7 @@ let
     kavita = make "kavita" 9 "kavita" [ "kavita.service" ] [ "kavita" ] [ "kavita" ];
     nginx = make "nginx" 10 "ingress" [ "nginx.service" ] [ "nginx" ] [ ];
     opencloud = make "opencloud" 11 "opencloud" [ "opencloud.service" ] [ "opencloud" ] [ ];
-    readeck = make "readeck" 12 "readeck" [ "readeck.service" ] [ ] [ "readeck" ];
+    readeck = make "readeck" 12 "readeck" [ "readeck.service" ] [ "readeck" ] [ "readeck" ];
     silverbullet = make "silverbullet" 13 "silverbullet" [
       "silverbullet.service"
     ] [ ] [ "silverbullet" ];

@@ -9,10 +9,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   alloyState = "${servicePrincipal.stateRoot}/alloy/data";
   requireAlloyState = pkgs.writeShellApplication {
     name = "homelab-alloy-state";

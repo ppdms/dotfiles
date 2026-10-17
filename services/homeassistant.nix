@@ -8,10 +8,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   haState = "${servicePrincipal.stateRoot}/homeassistant";
   haRestore = "${systemConfig.homelab.restoreRoot}/homeAssistant";
   requireHaState = pkgs.writeShellApplication {

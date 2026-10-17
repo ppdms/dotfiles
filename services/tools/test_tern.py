@@ -30,6 +30,7 @@ def load_module(name, filename):
 
 secrets = load_module("homelab_secrets", "homelab-secrets.py")
 tern = load_module("tern_under_test", "tool.py")
+import homelab_client as client_module
 
 OLD = "refresh-token-old-0123456789"
 NEW = "refresh-token-new-0123456789"
@@ -80,6 +81,9 @@ class BrokerCase(unittest.TestCase):
         for patcher in (
             patch.dict(os.environ, {"XDG_RUNTIME_DIR": str(self.runtime)}),
             patch.object(secrets, "read_record", side_effect=self.broker.read),
+            # prepare now runs through the thin client; its reads take the
+            # broker's complete flag, which the fake accepts and ignores.
+            patch.object(client_module, "read_record", side_effect=lambda component, complete=False: self.broker.read(component)),
             patch.object(secrets, "store_record", side_effect=self.broker.store),
             patch.object(tern, "sleep"),
             # Certificate checks need real PEM and openssl; token logic is under test.

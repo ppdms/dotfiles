@@ -14,11 +14,24 @@ UserNS=keep-id:uid=1000,gid=1000
 Pull=never
 Network=apps-net.network
 PublishPort=127.0.0.1:@port-readeck@:8000
+AddHost=auth.@public-domain@:@host-loopback-address@
+AddHost=auth.@lan-domain@:@host-loopback-address@
 Volume=@state-root@/readeck/data:/readeck:rw
+Volume=%t/homelab-readeck/ssl-ca-bundle.pem:/etc/ssl/certs/ca-certificates.crt:ro
+Volume=%t/homelab-secrets/readeck:/run/secrets:ro
 Environment=READECK_LOG_LEVEL=info
 Environment=READECK_SERVER_HOST=0.0.0.0
 Environment=READECK_SERVER_PORT=8000
 Environment=READECK_LOG_FORMAT=text
+# Native Authelia OIDC; the client secret arrives via EnvironmentFile
+# from the credential broker. Provisioning auto-creates a Readeck
+# account for any Authelia user on first login; admins map to admin.
+Environment=READECK_AUTH_OIDC_PROVIDERS_1_NAME=Authelia
+Environment=READECK_AUTH_OIDC_PROVIDERS_1_URL=https://auth.@public-domain@
+Environment=READECK_AUTH_OIDC_PROVIDERS_1_CLIENT_ID=readeck
+Environment=READECK_AUTH_OIDC_PROVIDERS_1_PROVISIONING=true
+Environment=READECK_AUTH_OIDC_PROVIDERS_1_GROUPS=admins=admin
+EnvironmentFile=%t/homelab-secrets/readeck/readeck.env
 NoNewPrivileges=true
 DropCapability=all
 HealthCmd=/bin/readeck healthcheck -config config.toml
@@ -28,6 +41,7 @@ HealthRetries=3
 HealthStartPeriod=60s
 
 [Service]
+ExecStartPre=@secret-helper@ prepare readeck
 ExecStartPre=@state-helper@
 Restart=on-failure
 RestartSec=15s

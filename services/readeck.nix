@@ -9,10 +9,7 @@
 }:
 
 let
-  secretHelper = pkgs.callPackage ./tools/homelab-secrets.nix {
-    lanDomain = systemConfig.homelab.lanDomain;
-    publicDomain = systemConfig.homelab.publicDomain;
-  };
+  secretHelper = pkgs.callPackage ./tools/homelab-client.nix { };
   readeckState = "${servicePrincipal.stateRoot}/readeck";
   readeckRestore = "${systemConfig.homelab.restoreRoot}/readeck/data";
   requireReadeckState = pkgs.writeShellApplication {
@@ -38,6 +35,21 @@ let
         echo "Readeck start blocked: config.toml server identity is missing; refusing replacement secrets." >&2
         exit 1
       fi
+      # Trust the private root CA so Readeck can discover and exchange
+      # codes at the configured OIDC issuer. Delivered at runtime.
+      runtime="''${XDG_RUNTIME_DIR:?}/homelab-readeck"
+      install -d -m 0700 "$runtime"
+      cat ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
+        ${lib.escapeShellArg (toString profileRoot + "/${systemConfig.homelab.caCertificateFile}")} \
+        > "$runtime/ssl-ca-bundle.pem"
+      chmod 0600 "$runtime/ssl-ca-bundle.pem"
+      # Readeck reads the OIDC secret from env, not *_FILE. Assemble a
+      # Quadlet EnvironmentFile consumed alongside the secret volume.
+      secrets="''${XDG_RUNTIME_DIR:?}/homelab-secrets/readeck"
+      {
+        printf 'READECK_AUTH_OIDC_PROVIDERS_1_CLIENT_SECRET=%s\n' "$(cat "$secrets/oidc-client-secret")"
+      } > "$secrets/readeck.env"
+      chmod 0600 "$secrets/readeck.env"
     '';
   };
   renderQuadlet =

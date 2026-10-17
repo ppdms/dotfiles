@@ -90,7 +90,6 @@
 
       homeManagerModules = {
         shared = import ./machines/shared/home.nix;
-        server = import ./services/default.nix;
       };
       nixosModules.server = import ./machines/server/system.nix;
 

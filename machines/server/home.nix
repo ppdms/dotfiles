@@ -12,7 +12,10 @@ let
 in
 {
   imports = [
-    ../../services/default.nix
+    # Only the operator keyring lives here. Workload modules are imported
+    # per account in machines/server/accounts.nix; importing all of them
+    # made any service edit change (and restart) this generation too.
+    ../../services/keyring.nix
     ../../programs/tern/module.nix
   ];
   homelab.keyring.enable = true;
