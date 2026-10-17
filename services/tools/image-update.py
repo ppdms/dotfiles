@@ -23,6 +23,7 @@ from image_age import AgeError, AgeStore, atomic_json
 from image_registry import Registry, RegistryError, stable_tags
 from dockerfile_inputs import (DockerfileInputsError, build_inputs, collect_inputs,
                                render_dockerfile)
+from dockerfile_pins import propose_pins
 from principals import (PrincipalError, current_principal, manifest, principal,
                         principal_for_unit, registry_archive_path, require_admin,
                         run_as, stream_image, tool)
@@ -511,6 +512,10 @@ def main(argv=None) -> int:
     inputs.add_argument("--require-aged", action="store_true")
     inputs.add_argument("--output", type=Path)
     inputs.add_argument("--rendered-output", type=Path)
+    pin = subparsers.add_parser("pin", help="Propose upstream FROM tags the seven-day gate accepts; never writes the Dockerfile")
+    pin.add_argument("--dockerfile", type=Path)
+    pin.add_argument("--dockerfile-stdin", action="store_true")
+    pin.add_argument("--json", action="store_true", required=True, help="Return the proposal on stdout")
     observation = subparsers.add_parser("observe-builds", help="Observe the upstream FROM images of every declared self-built Dockerfile")
     observation.add_argument("--spec", required=True, type=Path)
     args = parser.parse_args(argv)
@@ -554,6 +559,19 @@ def main(argv=None) -> int:
                 if args.json:
                     print(result.stdout.decode("utf-8").strip())
                 return 0
+            if args.action == "pin":
+                if args.dockerfile_stdin:
+                    dockerfile = sys.stdin.buffer.read()
+                elif args.dockerfile:
+                    dockerfile = args.dockerfile.read_bytes()
+                else:
+                    raise UpdateError("pin requires a Dockerfile")
+                result = run_as("image-updates", [tool("image_update"), "pin", "--dockerfile-stdin", "--json"],
+                                input=dockerfile, capture_output=True, timeout=600)
+                if result.returncode:
+                    raise UpdateError(result.stderr.decode("utf-8", "replace").strip())
+                print(result.stdout.decode("utf-8").strip())
+                return 0
             return run_as("image-updates", [tool("image_update"), *(sys.argv[1:] if argv is None else argv)]).returncode
         if args.action == "acquire":
             return acquire_images(args.images, args.signature_policy)
@@ -577,6 +595,17 @@ def main(argv=None) -> int:
                     args.rendered_output.write_text(rendered)
                 if args.output:
                     atomic_json(args.output, specification)
+                return 0
+            if args.action == "pin":
+                with tempfile.TemporaryDirectory(prefix="dockerfile-pin-", dir=os.environ["XDG_RUNTIME_DIR"]) as temporary:
+                    dockerfile = args.dockerfile
+                    if args.dockerfile_stdin:
+                        dockerfile = Path(temporary) / "Dockerfile"
+                        dockerfile.write_bytes(sys.stdin.buffer.read())
+                    if dockerfile is None:
+                        raise UpdateError("pin requires a Dockerfile")
+                    proposal = propose_pins(dockerfile, AgeStore(args.state_dir / "observations.json"))
+                print(json.dumps(proposal))
                 return 0
             if args.action == "observe-builds":
                 return observe_builds(args.spec, args.state_dir)

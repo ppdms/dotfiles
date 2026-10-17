@@ -17,7 +17,9 @@ sys.path.insert(0, str(SOURCES))
 
 from image_age import MINIMUM_AGE
 import dockerfile_inputs
+import dockerfile_pins
 from test_dockerfile_inputs import ScriptedRegistry, artifact
+from test_dockerfile_pins import HUB, NOW as PIN_NOW, Hub
 
 spec = importlib.util.spec_from_file_location("inputs_cli", SOURCES / "image-update.py")
 updater = importlib.util.module_from_spec(spec)
@@ -84,6 +86,31 @@ class InputsCLITests(unittest.TestCase):
         code, stdout, _ = self.invoke(True, NOW)
         self.assertEqual(code, 1)
         self.assertEqual(stdout, "")
+
+
+class PinCLITests(unittest.TestCase):
+    def test_pin_emits_one_json_proposal_the_gate_accepts(self):
+        dockerfile = b"FROM node:24-alpine3.24 AS client\nFROM alpine:3.24\n"
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.object(updater, "principal", return_value={"uid": os.getuid()}),
+                patch.object(dockerfile_pins, "Registry", return_value=Hub(HUB)),
+                patch("image_age.time.time", return_value=PIN_NOW),
+                patch.dict(os.environ, {"XDG_RUNTIME_DIR": directory}),
+                patch.object(sys, "stdin", io.TextIOWrapper(io.BytesIO(dockerfile))),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                code = updater.main(["--state-dir", str(Path(directory) / "state"), "pin", "--dockerfile-stdin", "--json"])
+        self.assertEqual(code, 0, stderr.getvalue())
+        proposal = json.loads(stdout.getvalue())
+        self.assertTrue(proposal["ok"], proposal["error"])
+        self.assertEqual(proposal["dockerfile_digest"], "sha256:" + hashlib.sha256(dockerfile).hexdigest())
+        self.assertEqual(
+            proposal["rewritten"],
+            "FROM docker.io/library/node:24.21.0-alpine3.24 AS client\nFROM docker.io/library/alpine:3.24.2\n",
+        )
 
 
 class ObserveBuildsTests(unittest.TestCase):

@@ -20,6 +20,7 @@ let
     cp ${./image_registry.py} "$out/image_registry.py"
     cp ${./image_publication.py} "$out/image_publication.py"
     cp ${./dockerfile_inputs.py} "$out/dockerfile_inputs.py"
+    cp ${./dockerfile_pins.py} "$out/dockerfile_pins.py"
     cp ${./principals.py} "$out/principals.py"
   '';
 in

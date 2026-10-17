@@ -7,7 +7,8 @@ is built from the clean committed HEAD of its git checkout by the shared
 `homelab-image-update inputs` (seven-day quarantine), the build is hermetic
 (`--pull=never`, pinned Dockerfile rendering) and the resulting image ID is
 streamed into the owning service's rootless Podman store. `stage` only warms
-the base-image observation clock. `deploy` promotes the new image by retagging
+the base-image observation clock. `pin` prints a patch that moves floating base
+tags to exact tags the gate already accepts and writes nothing. `deploy` promotes the new image by retagging
 `<repository>:stable` (the previous image stays reachable as `:previous`) and,
 for served images, restarts the unit and waits for the container to be healthy.
 A failed activation restores the previous image; an interrupted one stays
@@ -532,6 +533,35 @@ def cmd_stage(context: argparse.Namespace) -> int:
     return 0
 
 
+def pin_line(base: dict) -> str:
+    status, declared, proposed = base["status"], base["declared"], base["proposed"]
+    if status in ("blocked", "unpinnable"):
+        return f"{status:<9} {declared}: {base['reason']}"
+    usable = ""
+    if base["eligible_at"] is not None:
+        day = datetime.fromtimestamp(base["eligible_at"], timezone.utc).strftime("%Y-%m-%d")
+        usable = f"  usable from {day} ({base['evidence']})"
+    return f"{status:<9} {declared} -> {proposed}{usable}{'  DOWNGRADE' if base['downgrade'] else ''}"
+
+
+def cmd_pin(context: argparse.Namespace) -> int:
+    """Print a patch pinning the bases; read-only, so no deploy lock, journal, unit or podman."""
+    image = select(context.spec, context.name)
+    root = image_build.checkout_root(image.target)
+    proposal = image_build.propose_pins(image.target, root)
+    sys.stdout.write(proposal["patch"])
+    sys.stdout.flush()
+    for base in proposal["bases"]:
+        print(pin_line(base), file=sys.stderr)
+    if proposal["ok"]:
+        print(f"{image.name}: the pinned Dockerfile is deployable now.", file=sys.stderr)
+    else:
+        print(f"{image.name}: the pinned Dockerfile is NOT deployable now: {proposal['error']}", file=sys.stderr)
+    if proposal["patch"]:
+        print(f"apply with: sudo homelab-image-build pin {image.name} | git -C {root} apply", file=sys.stderr)
+    return 0 if proposal["ok"] else 1
+
+
 def cmd_deploy(context: argparse.Namespace) -> int:
     image = select(context.spec, context.name)
     target = image.target
@@ -615,6 +645,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list", help="List declared self-built images").set_defaults(run=cmd_list)
     for command, run, text in (
         ("stage", cmd_stage, "Warm upstream bases for seven-day observation; builds nothing"),
+        ("pin", cmd_pin, "Print a patch pinning the Dockerfile's bases to tags the seven-day gate accepts; writes nothing"),
         ("deploy", cmd_deploy, "Build clean HEAD on aged bases and promote it to :stable"),
         ("rollback", cmd_rollback, "Swap :stable and :previous"),
         ("recover", cmd_recover, "Restore the previous image after an interrupted operation"),
@@ -627,7 +658,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-READ_ONLY = ("list", "status")
+READ_ONLY = ("list", "status", "pin")
 
 
 def main(argv: list[str] | None = None) -> int:

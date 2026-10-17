@@ -21,6 +21,7 @@ import subprocess
 import tarfile
 import tempfile
 
+from dockerfile_pins import unified_patch
 from principals import principal, run_as, stream_image, tool
 
 REVISION_LABEL = "org.opencontainers.image.revision"
@@ -171,12 +172,16 @@ def git_rev(root: Path, allow_dirty: bool) -> str:
         raise BuildError("git is not on PATH") from None
 
 
+def bytes_digest(raw: bytes) -> str:
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
 def dockerfile_digest(dockerfile: Path) -> str:
     try:
         raw = dockerfile.read_bytes()
     except OSError as error:
         raise BuildError(f"could not read {dockerfile}: {error}") from error
-    return "sha256:" + hashlib.sha256(raw).hexdigest()
+    return bytes_digest(raw)
 
 
 def base_provenance(specification: dict) -> str:
@@ -228,6 +233,60 @@ def authorize_bases(
     if not rendered_path.is_file():
         raise BuildError("inputs rendered no pinned Dockerfile")
     return specification, rendered_path
+
+
+def check_pin_rewrite(original: str, rewritten: str) -> None:
+    """A proposal may change FROM lines only; anything else is not a pin."""
+    before, after = original.splitlines(keepends=True), rewritten.splitlines(keepends=True)
+    if len(before) != len(after):
+        raise BuildError(f"pin proposal changed the Dockerfile line count ({len(before)} -> {len(after)})")
+    for number, (old, new) in enumerate(zip(before, after), 1):
+        if old == new:
+            continue
+        if any((line.split() or [""])[0].upper() != "FROM" for line in (old, new)):
+            raise BuildError(f"pin proposal changed line {number}, which is not a FROM line: {new.rstrip()!r}")
+
+
+def propose_pins(target: BuildTarget, root: Path) -> dict:
+    """Ask the updater which exact tags the gate accepts; never writes the checkout.
+
+    The working-tree Dockerfile is what the patch must apply to. The response is
+    trusted only after its digest binds it to the bytes sent and its rewrite is
+    shown to touch FROM lines alone.
+    """
+    dockerfile = root / target.dockerfile
+    try:
+        raw = dockerfile.read_bytes()
+        original = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise BuildError(f"could not read {dockerfile}: {error}") from error
+    try:
+        result = run_as(
+            "image-updates",
+            [tool("image_update"), "pin", "--dockerfile-stdin", "--json"],
+            input=raw,
+            capture_output=True,
+            timeout=300,
+        )
+    except OSError as error:
+        raise BuildError(f"could not run image-update pin: {error}") from error
+    if result.returncode != 0:
+        raise BuildError(
+            result.stderr.decode("utf-8", "replace").strip() or f"image-update pin failed for {target.name}"
+        )
+    try:
+        response = json.loads(result.stdout)
+        rewritten = response["rewritten"]
+        valid = response["schema"] == 1 and isinstance(rewritten, str) and isinstance(response["bases"], list)
+        digest = response["dockerfile_digest"]
+    except (ValueError, KeyError, TypeError) as error:
+        raise BuildError(f"could not read pin proposal: {error}") from error
+    if not valid:
+        raise BuildError("pin proposal has an unsupported schema")
+    if digest != bytes_digest(raw):
+        raise BuildError("pin proposal does not match the working-tree Dockerfile")
+    check_pin_rewrite(original, rewritten)
+    return dict(response, patch=unified_patch(original, rewritten, target.dockerfile))
 
 
 def acquire_base(target: BuildTarget, reference: str) -> None:

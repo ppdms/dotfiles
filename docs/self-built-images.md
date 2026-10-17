@@ -74,6 +74,7 @@ through `sudo`. The name is the service, e.g. `silverbullet`.
 ```bash
 homelab-image-build list                 # declared images and their mode
 homelab-image-build stage NAME           # observe base images now; build nothing
+homelab-image-build pin NAME             # print a patch pinning the bases; write nothing
 homelab-image-build deploy NAME          # build (or reuse), transfer, activate
 homelab-image-build rollback NAME        # swap :stable and :previous
 homelab-image-build status [NAME]        # revisions, journal, unit, health
@@ -91,6 +92,54 @@ retained as `:previous`. Running it twice moves forward again. Only one
 previous image is kept; older images stay in the store until removed by hand
 (`podman image prune` as the owning account). Nothing is pruned
 automatically.
+
+## Pinning base images
+
+A floating tag such as `node:24-alpine3.24` is republished by upstream as new
+releases ship, and each republish is a new digest with a new push date, so the
+seven-day wait starts over every time. The gate needs a digest that has already
+aged. `pin` finds, for every upstream base, the newest exact tag that the gate
+accepts right now, and prints a patch that switches the Dockerfile to it:
+
+```bash
+sudo homelab-image-build pin NAME | git -C CHECKOUT apply
+```
+
+Review the change, commit it, then `deploy`. Standard output is the patch and
+nothing else (empty when there is nothing to change). Standard error is a table:
+one line per base with its status, `declared -> proposed`, the date it is usable
+from and where that date comes from, then whether the pinned Dockerfile is
+deployable now. The exit code is 0 when it is and 1 when it is not (the patch is
+still printed, so the renames can be applied while a base keeps aging).
+
+**Selection rule**
+
+- The series comes from the declared tag: `24` is that major, `1.99` and
+  `1.99.0` are `1.99.x`, `3.24` is `3.24.x`. A pinned tag never crosses a minor.
+- The variant suffix is kept (`-alpine3.24` stays `-alpine3.24`).
+- Only exact, most-specific tags are candidates (`24.21.0-alpine3.24`, not
+  `24.21-alpine3.24`).
+- Candidates are tried newest first, at most 12; the first one the gate
+  accepts wins. A base already on that tag is left alone.
+- Choosing an older patch than the one declared inside the same minor is marked
+  `DOWNGRADE` in the table: the newest release is not old enough yet.
+
+**Determinism.** The same Dockerfile, registry state and time give the same
+result. After the patch is applied, running `pin` again changes nothing until a
+newer tag has aged.
+
+**Safety.** `pin` is read-only: it prints a patch and never writes your
+checkout, takes the deploy lock, or touches the journal or any container. It
+reads the working-tree Dockerfile, so the patch applies to what you edit. The
+rewritten file is re-checked with the real gate (that is the "deployable now"
+line), only `FROM` lines may differ from your file, and the proposal is bound to
+the digest of the exact bytes it was computed from; a response that does not
+match is refused.
+
+**What it cannot do.** A tag with no version (`bookworm-slim`, `latest`) has no
+series to choose from and is reported `unpinnable`; choose a versioned tag by
+hand. A base for which no candidate is old enough is reported `blocked` with the
+date it becomes usable. A base that is already fixed by digest is left alone.
 
 ### Build time
 
@@ -151,6 +200,10 @@ The base-image gate parses the Dockerfile strictly. In the file named in
 
 - every external `FROM` is a plain `name:tag` (or `name:tag@sha256:…`) —
   no `latest`, no `ARG` substitution, no multi-line `FROM`;
+- registry names are explicit: `docker.io/library/node:24.21.0-alpine3.24`, not
+  `node:24.21.0-alpine3.24`. Once the registry's own publication date is
+  attached, the age store refuses a bare Docker Hub name as an unsafe artifact
+  repository. [`pin`](#pinning-base-images) writes the explicit name for you;
 - other stages are referenced only through `COPY --from=` and
   `RUN --mount=…from=` with a stage name;
 - the revision arrives as a build argument named in the catalogue
@@ -183,6 +236,7 @@ are age-gated.
 | Shared pipeline | `services/tools/image_build.py` |
 | `homelab-image-build` | `services/tools/image-build.py`, `image-build.nix` |
 | Base-image gate (`homelab-image-update inputs`, `observe-builds`) | `services/tools/dockerfile_inputs.py`, `image-update.py` |
+| `pin` (`homelab-image-update pin`) | `services/tools/dockerfile_pins.py`, `image_build.py` |
 | Which services, and how | `services/self-built.nix` |
 | Release journal | `/var/lib/homelab/image-builds/NAME/` (root, `0700`) |
 | Tree's version | `services/tools/tree-dev.py` |

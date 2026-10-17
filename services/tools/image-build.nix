@@ -15,6 +15,11 @@ let
     mkdir -p "$out"
     cp ${./image-build.py} "$out/image-build.py"
     cp ${./image_build.py} "$out/image_build.py"
+    cp ${./dockerfile_pins.py} "$out/dockerfile_pins.py"
+    cp ${./dockerfile_inputs.py} "$out/dockerfile_inputs.py"
+    cp ${./image_age.py} "$out/image_age.py"
+    cp ${./image_registry.py} "$out/image_registry.py"
+    cp ${./image_publication.py} "$out/image_publication.py"
     cp ${./principals.py} "$out/principals.py"
   '';
 in
