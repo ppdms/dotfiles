@@ -48,11 +48,16 @@ flowchart TD
 - **Only committed code is built.** The build context is `git archive` of
   `HEAD`; uncommitted files cannot enter an image, and a dirty checkout is
   refused. Commit first.
-- **Base images are quarantined.** Every upstream `FROM` image must have
-  been observed for seven days before a build may use it, exactly as for
-  Tree. Your own code is never delayed. A daily timer observes the bases of
-  every declared checkout, so the clock starts without anyone asking; you can
-  also start it at once with `stage`.
+- **Base images are quarantined.** Every upstream `FROM` image must be seven
+  days old before a build may use it, exactly as for Tree. The age is counted
+  from the registry's own push date for that exact digest where one is
+  available (Docker Hub, GHCR, Codeberg), otherwise from when it was first
+  observed here. So a base pushed two days ago becomes usable in five, and
+  `stage` does not restart anything: it only records that the digest was seen,
+  which the gate also requires. Your own code is never delayed. A daily timer
+  observes the bases of every declared checkout; `stage` does it at once.
+  A floating tag that upstream republishes is a new digest with a new date,
+  so the wait for that base starts over.
 - **Accounts.** The root-run command dispatches into three separate
   accounts: `image-updates` authorizes and fetches the base images,
   `image-builds` runs `podman build`, and the service's own account receives
