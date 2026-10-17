@@ -21,6 +21,7 @@ import pwd
 import re
 import stat
 import subprocess
+import struct
 import sys
 import tempfile
 
@@ -183,15 +184,67 @@ def tree_entries(root: Path, excluded: set[Path]):
                     yield current, name, info
 
 
-def reader_acl_needed(descriptor, info):
-    """Leave universally accessible files untouched; directories need defaults."""
-    if stat.S_ISDIR(info.st_mode):
+# POSIX ACL xattr entry tags and permission bits (uapi/linux/posix_acl_xattr.h).
+_ACL_TAG_USER = 0x02
+_ACL_TAG_MASK = 0x10
+_ACL_READ = 0x04
+_ACL_EXECUTE = 0x01
+
+
+def _acl_grants_reader(descriptor, attribute, reader, needed):
+    """True only if the named-user entry, bounded by the mask, grants `needed`.
+
+    Malformed or absent ACLs answer False: the caller then falls back to
+    applying the grant, so a parse surprise costs a batch, never access.
+    """
+    try:
+        # O_PATH pins the inode but is not an xattr syscall descriptor.
+        data = os.getxattr(f"/proc/self/fd/{descriptor}", attribute)
+    except OSError as error:
+        if error.errno in (errno.ENODATA, errno.ENOTSUP):
+            return False
+        raise
+    if len(data) < 4 or (len(data) - 4) % 8:
+        return False
+    version, = struct.unpack_from("<I", data, 0)
+    if version != 2:
+        return False
+    granted = None
+    mask = None
+    for offset in range(4, len(data), 8):
+        tag, permissions, identifier = struct.unpack_from("<HHI", data, offset)
+        if tag == _ACL_TAG_USER and identifier == reader:
+            granted = permissions
+        elif tag == _ACL_TAG_MASK:
+            mask = permissions
+    if granted is None:
+        return False
+    if mask is not None:
+        granted &= mask
+    return granted & needed == needed
+
+
+def reader_acl_needed(descriptor, info, reader):
+    """Leave files the reader can already reach untouched.
+
+    A file needs a batch only when no existing named-user entry grants the
+    reader (directories also need the default entry new files inherit).
+    Without any ACL, universal mode bits suffice; with one, named entries
+    can deny a reader despite those bits, so only an explicit grant skips.
+    """
+    is_directory = stat.S_ISDIR(info.st_mode)
+    needed = (_ACL_READ | _ACL_EXECUTE) if is_directory or info.st_mode & 0o111 else _ACL_READ
+    if _acl_grants_reader(descriptor, "system.posix_acl_access", reader, needed) and (
+            not is_directory
+            or _acl_grants_reader(descriptor, "system.posix_acl_default", reader,
+                                  _ACL_READ | _ACL_EXECUTE)):
+        return False
+    if is_directory:
         return True
     required = 0o555 if info.st_mode & 0o111 else 0o444
     if info.st_mode & required != required:
         return True
     try:
-        # O_PATH pins the inode but is not an xattr syscall descriptor.
         os.getxattr(f"/proc/self/fd/{descriptor}", "system.posix_acl_access")
     except OSError as error:
         if error.errno in (errno.ENODATA, errno.ENOTSUP):
@@ -201,7 +254,7 @@ def reader_acl_needed(descriptor, info):
     return True
 
 
-def bounded_links(root: Path, excluded: set[Path], *, reader_only=False):
+def bounded_links(root: Path, excluded: set[Path], *, reader=None, reader_only=False):
     links = Counter()
     counts = {}
     mutations = {}
@@ -218,7 +271,7 @@ def bounded_links(root: Path, excluded: set[Path], *, reader_only=False):
                         pinned = os.fstat(descriptor)
                         if (pinned.st_dev, pinned.st_ino) != key:
                             raise StateError("dataset inode changed during hard-link verification")
-                        mutations[key] = reader_acl_needed(descriptor, pinned)
+                        mutations[key] = reader_acl_needed(descriptor, pinned, reader)
                     finally:
                         os.close(descriptor)
     if any(mutations[key] and links[key] != total for key, total in counts.items()):
@@ -241,7 +294,7 @@ def reader_acl_batch(reader, permissions, default_directory, descriptors):
 def change_tree(root: Path, *, owner=None, reader=None, excluded=frozenset()):
     """Keep ownership ordered and reader ACL work bounded to four native batches."""
     excluded = set(excluded)
-    bounded_links(root, excluded, reader_only=owner is None and reader is not None)
+    bounded_links(root, excluded, reader=reader, reader_only=owner is None and reader is not None)
     batches = {}
     workers = {}
     executor = ThreadPoolExecutor(max_workers=4) if reader is not None else None
@@ -300,7 +353,7 @@ def change_tree(root: Path, *, owner=None, reader=None, excluded=frozenset()):
                     pinned = os.fstat(file)
                     if (pinned.st_dev, pinned.st_ino) != (info.st_dev, info.st_ino):
                         raise StateError("dataset inode changed during reader ACL preparation")
-                    if not reader_acl_needed(file, pinned):
+                    if not reader_acl_needed(file, pinned, reader):
                         os.close(file)
                         continue
                     key = permissions, default_directory

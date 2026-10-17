@@ -55,6 +55,19 @@ class HardLinkScopeTests(unittest.TestCase):
         with self.assertRaises(state.StateError):
             state.change_tree(self.source, reader=43006)
 
+    def test_reader_grant_converges_without_reapplying_acls(self):
+        private = self.source / "private"
+        private.write_bytes(b"backup-only bytes\n")
+        private.chmod(0o600)
+        state.change_tree(self.source, reader=43006)
+        settled = {entry: entry.stat().st_ctime_ns for entry in (self.source, private)}
+        state.change_tree(self.source, reader=43006)
+        for entry, ctime in settled.items():
+            self.assertEqual(entry.stat().st_ctime_ns, ctime)
+        # The grant itself must really be in place, not merely skipped.
+        acl = subprocess.run(["getfacl", "-ncp", str(private)], capture_output=True, text=True, check=True).stdout
+        self.assertIn("user:43006:r--", acl)
+
     def test_copy_owns_new_inode_without_mutating_shared_source(self):
         self.outside.chmod(0o600)
         before = self.outside.stat()

@@ -48,7 +48,17 @@ let
   roleHomes = lib.mapAttrs' (
     _: role:
     lib.nameValuePair role.account {
-      imports = [ ../../services/default.nix ];
+      # Import only the infrastructure every role needs plus this role's
+      # own service module. Importing every service for every account made
+      # any service edit change (and restart) all two dozen Home Manager
+      # generations, and multiplied evaluation work by the account count.
+      imports = [
+        ../../services/core.nix
+        ../../services/secrets.nix
+        ../../services/image-updates.nix
+        ../../services/metrics.nix
+      ]
+      ++ lib.optional (role.module != null && role.module != "metrics") ../../services/${role.module}.nix;
       _module.args = {
         systemConfig = roleConfig role;
         servicePrincipal = role;
@@ -62,35 +72,24 @@ let
       # Root preparation creates this directory and protects state-view ancestors.
       # Home Manager's empty-directory marker must not mutate those ancestors.
       home.file."${role.home}/.local/state/.keep".enable = false;
-      homelab =
-        lib.mapAttrs
-          (name: _: {
-            enable = role.module != null && name == role.module;
-          })
-          (
-            lib.filterAttrs (
-              name: _:
-              # tern is the operator's own program, not a role module.
-              !builtins.elem name [
-                "core"
-                "metrics"
-                "tern"
-              ]
-            ) deployment.services
-          )
-        // {
-          core = {
-            enable = true;
-            inherit imagePins;
-          };
-          metrics.enable =
-            deployment.services.metrics
-            && !builtins.elem role.name [
-              "image-updates"
-              "secrets-export"
-              "vpn-ddns"
-            ];
+      homelab = {
+        core = {
+          enable = true;
+          inherit imagePins;
         };
+        metrics.enable =
+          deployment.services.metrics
+          && !builtins.elem role.name [
+            "image-updates"
+            "secrets-export"
+            "vpn-ddns"
+          ];
+      }
+      # Only the imported module's option exists; unimported services
+      # keep their mkEnableOption default (false), as before.
+      // lib.optionalAttrs (role.module != null && role.module != "metrics") {
+        ${role.module}.enable = true;
+      };
       xdg.configFile."containers/containers.conf".text = ''
         [network]
         pasta_options = ["--map-host-loopback", "${registry.hostLoopbackAddress}"]

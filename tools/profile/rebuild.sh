@@ -119,7 +119,14 @@ switch_nixos() {
         trap restore_backrest EXIT
         backrest_ctl stop backrest.service
     fi
-    sudo nixos-rebuild switch --flake "$flake#$hostname" --no-write-lock-file || status=$?
+    # Activate the toplevel built above directly. `nixos-rebuild switch`
+    # would evaluate the flake a second time (tens of seconds) only to build
+    # this same output, then do exactly these two steps: register the system
+    # profile generation, then run switch-to-configuration.
+    sudo nix-env --profile /nix/var/nix/profiles/system --set "$system" || status=$?
+    if (( ! status )); then
+        sudo "$system/bin/switch-to-configuration" switch || status=$?
+    fi
     restore_backrest || (( status )) || status=1
     return "$status"
 }

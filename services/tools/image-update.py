@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -373,7 +374,7 @@ def distribute_images(specification: Path, signature_policy: Path) -> int:
     if not str(specification.resolve()).startswith("/nix/store/"):
         raise UpdateError("runtime image distribution requires an immutable packaged specification")
     services = json.loads(specification.read_text())
-    needed = {}
+    checks = set()
     for service in services:
         role, image = service["principal"], service["image"]
         if principal_for_unit(service["unit"]) != role:
@@ -381,7 +382,16 @@ def distribute_images(specification: Path, signature_policy: Path) -> int:
         principal(role)
         if not re.fullmatch(r"[A-Za-z0-9._:/-]+@sha256:[0-9a-f]{64}", image):
             raise UpdateError("runtime distribution requires immutable image references")
-        if not image_present(role, image):
+        checks.add((role, image))
+    # Each probe is a sudo + podman invocation (~seconds); they are
+    # independent per-role store reads, so probe concurrently. The
+    # acquire/load below stays serial: it mutates the stores.
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        ordered = sorted(checks)
+        presence = dict(zip(ordered, executor.map(lambda check: image_present(*check), ordered)))
+    needed = {}
+    for role, image in checks:
+        if not presence[(role, image)]:
             needed.setdefault(image, set()).add(role)
     if needed:
         role_command("image-updates", tool("image_update"), "acquire",
