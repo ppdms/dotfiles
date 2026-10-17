@@ -81,8 +81,8 @@ TimeoutStopSec=120s
 UMask=0077
 TasksMax=1024
 # NATS indexes thrash under a 3 GiB startup soft limit.
-MemoryHigh=4G
-MemoryMax=4G
+MemoryHigh=4915M
+MemoryMax=6G
 
 [Install]
 WantedBy=homelab.target
