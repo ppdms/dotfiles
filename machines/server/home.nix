@@ -36,5 +36,7 @@ in
   programs.fish.shellAliases = {
     rebuild = "bash ${lib.escapeShellArg systemConfig.system.checkout}/tools/profile/rebuild.sh";
     rebuild-update = "bash ${lib.escapeShellArg systemConfig.system.checkout}/tools/profile/rebuild.sh --update";
+    clean = "bash ${lib.escapeShellArg systemConfig.system.checkout}/tools/clean.sh";
+    cleanup = "bash ${lib.escapeShellArg systemConfig.system.checkout}/tools/clean.sh";
   };
 }

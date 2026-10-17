@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec "$(CDPATH= cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)/tools/clean.sh" "$@"

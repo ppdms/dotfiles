@@ -98,6 +98,9 @@ in
     LANG_ALL = "en_US.UTF-8";
     GPG_TTY = "$(tty)";
     GOPATH = "$HOME/Developer/go";
+    GOCACHE = "/tmp/go-build";
+    UV_CACHE_DIR = "/tmp/uv";
+    HOMEBREW_CACHE = "/tmp/Homebrew";
   };
   home.sessionPath = [
     "${systemConfig.system.checkout}/commands"
@@ -105,6 +108,10 @@ in
     "$HOME/Developer/go/bin"
   ];
   home.file.".hushlogin".text = "";
+
+  home.file.".config/uv/uv.toml".text = ''
+    cache-dir = "/tmp/uv"
+  '';
 
   home.file.".hammerspoon/init.lua".text = hammerspoonConfig;
   targets.darwin.defaults."org.hammerspoon.Hammerspoon".MJConfigFile =
@@ -116,6 +123,8 @@ in
       # Darwin rebuild aliases (note: 'switch' is a reserved keyword in Fish)
       rebuild = "bash ${lib.escapeShellArg "${systemConfig.system.checkout}/tools/profile/rebuild.sh"}";
       rebuild-update = "bash ${lib.escapeShellArg "${systemConfig.system.checkout}/tools/profile/rebuild.sh"} --update";
+      clean = "bash ${lib.escapeShellArg "${systemConfig.system.checkout}/tools/clean.sh"}";
+      cleanup = "bash ${lib.escapeShellArg "${systemConfig.system.checkout}/tools/clean.sh"}";
     };
 
     shellInit = ''
@@ -205,21 +214,6 @@ in
       run ${setCodexSandbox} ${lib.escapeShellArg codexSandboxMode}
     ''
   );
-
-  # # Docker configuration - set cliPluginsExtraDirs for Homebrew Docker plugins
-  # home.activation.dockerConfig = config.lib.dag.entryAfter [ "writeBoundary" ] ''
-  #   $DRY_RUN_CMD mkdir -p "$HOME/.docker"
-  #   if [ -f "$HOME/.docker/config.json" ]; then
-  #     # Backup existing config
-  #     $DRY_RUN_CMD cp "$HOME/.docker/config.json" "$HOME/.docker/config.json.bak"
-  #     # Merge with existing config using jq
-  #     $DRY_RUN_CMD ${pkgs.jq}/bin/jq '. + {"cliPluginsExtraDirs": ["$HOMEBREW_PREFIX/lib/docker/cli-plugins"]}' "$HOME/.docker/config.json" > "$HOME/.docker/config.json.tmp"
-  #     $DRY_RUN_CMD mv "$HOME/.docker/config.json.tmp" "$HOME/.docker/config.json"
-  #   else
-  #     # Create new config
-  #     $DRY_RUN_CMD echo '{"cliPluginsExtraDirs": ["$HOMEBREW_PREFIX/lib/docker/cli-plugins"]}' > "$HOME/.docker/config.json"
-  #   fi
-  # '';
 
   # SOPS SSH Agent launchd service for Darwin
   launchd.agents.sops-ssh-agent = {
