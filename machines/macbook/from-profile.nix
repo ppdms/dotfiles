@@ -70,6 +70,7 @@ builtins.deepSeq systemConfig (
           home-manager.extraSpecialArgs = {
             inherit systemConfig;
             profileRoot = profile.outPath;
+            flakeSelf = self;
           };
         }
       ];

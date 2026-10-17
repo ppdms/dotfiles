@@ -85,6 +85,14 @@ if [[ "$platform" == darwin ]] && (( update )); then
     # Update with the public placeholder, not the real profile override.
     nix flake update --flake "$public_flake"
 fi
+local_packages="$state_dir/local-packages"
+if [[ "$platform" == darwin ]] && [[ -x "$local_packages/refresh.sh" ]]; then
+    # The private local-packages input may refresh its own pins here;
+    # LOCAL_PACKAGES_UPDATE=1 only for `rebuild --update`. Nothing
+    # about its contents is tracked in the public checkout.
+    LOCAL_PACKAGES_UPDATE="$update" "$local_packages/refresh.sh" ||
+        die 'Local packages refresh failed'
+fi
 # A switch that changes any of these units restarts it, and each refuses to run
 # while Backrest's container holds the state paths it adopts. When the switch
 # would restart one, stop Backrest first and start it again afterwards.
@@ -132,10 +140,16 @@ switch_nixos() {
 }
 if (( ! no_switch )); then
     if [[ "$platform" == darwin ]]; then
-        sudo --preserve-env=NIX_CONFIG darwin-rebuild switch \
-            --flake "$public_flake#$hostname" \
-            --override-input profile "$profile_url" \
+        darwin_args=(
+            --flake "$public_flake#$hostname"
+            --override-input profile "$profile_url"
             --no-write-lock-file
+        )
+        if [[ -f "$local_packages/package.nix" ]]; then
+            darwin_args+=(--override-input local-packages "path:$local_packages")
+        fi
+        sudo --preserve-env=NIX_CONFIG darwin-rebuild switch \
+            "${darwin_args[@]}"
     else
         switch_nixos
     fi

@@ -3,10 +3,13 @@
   config,
   lib,
   systemConfig,
+  flakeSelf,
   ...
 }:
 let
   photosImport = pkgs.callPackage ../../programs/photos-import/package.nix { };
+  # Packages from the private local-packages input (none by default).
+  localPackages = import (flakeSelf.inputs.local-packages + "/default.nix") { inherit pkgs; };
   applicationsDirectory =
     if config.targets.darwin.copyApps.enable then
       config.targets.darwin.copyApps.directory
@@ -55,53 +58,6 @@ let
       ''
     ) (systemConfig.network.modes or { })
   );
-  claude = systemConfig.applications.claude;
-  claudeConfig = {
-    mcpServers.anki = {
-      command = "npx";
-      args = [
-        "--yes"
-        "anki-mcp-server"
-      ];
-    };
-    coworkUserFilesPath = claude.coworkUserFilesPath;
-    preferences = {
-      launchPreviewPersistedWorkspaces = [ ];
-      launchPreviewSessionScopedSessions = [ ];
-      coworkScheduledTasksEnabled = true;
-      coworkHipaaRestricted = false;
-      ccdScheduledTasksEnabled = true;
-      bypassPermissionsGateByAccount."${claude.accountId}" = false;
-      coworkWebSearchEnabled = true;
-      coworkModelAutoFallbackByAccount."${claude.accountId}" = true;
-      remoteToolsDeviceName = claude.remoteToolsDeviceName;
-      epitaxyPrefs = {
-        "desktop-frame.paneStore.v1" = {
-          state = {
-            extraPanesByMode = { };
-            colWeightsByMode = { };
-            rowSplit = 0.5;
-            draftNonce = 0;
-          };
-          version = 4;
-        };
-        starred-local-code-sessions = [ ];
-        starred-cowork-spaces = [ ];
-        starred-session-groups = [ ];
-        dframe-group-scopes = { };
-        dframe-local-slice = {
-          pinnedOrder = [ ];
-          homeProjectsPinnedOrder = [ ];
-        };
-        ccd-sessions-filter = {
-          state.selectedProjects = [ ];
-          version = 0;
-        };
-      };
-      sidebarMode = "epitaxy";
-      menuBarEnabled = false;
-    };
-  };
 in
 {
   imports = [
@@ -116,19 +72,21 @@ in
     }
   ];
 
-  home.packages = with pkgs; [
-    photosImport
-    (pkgs.callPackage ../../services/tools/cf.nix { })
-    pngpaste
-    backrest
-    deno
-    sshpass
-    x11_ssh_askpass
-    inter
-    nerd-fonts.jetbrains-mono
-    inconsolata
-    anonymousPro
-  ];
+  home.packages =
+    (with pkgs; [
+      photosImport
+      (pkgs.callPackage ../../services/tools/cf.nix { })
+      pngpaste
+      backrest
+      deno
+      sshpass
+      x11_ssh_askpass
+      inter
+      nerd-fonts.jetbrains-mono
+      inconsolata
+      anonymousPro
+    ])
+    ++ lib.attrValues localPackages;
 
   # The laptop keeps its externally installed OMP executable.
   programs.omp.managePackage = false;
@@ -342,10 +300,4 @@ in
 
   # Ghostty configuration - ghostty is installed via Homebrew
   home.file.".config/ghostty/config".source = ../../programs/ghostty/config;
-
-  # The Claude desktop app rewrites this file itself, so force = true prevents
-  # clobber errors. Account and device identifiers come from the encrypted profile.
-  home.file."Library/Application Support/Claude/claude_desktop_config.json".force = true;
-  home.file."Library/Application Support/Claude/claude_desktop_config.json".text =
-    builtins.toJSON claudeConfig;
 }

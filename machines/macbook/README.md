@@ -5,7 +5,7 @@ A laptop running macOS, managed with nix-darwin and Home Manager.
 | File | Contents |
 |---|---|
 | `system.nix` | The machine: users, Finder defaults, Touch ID for sudo, Homebrew, the backup service, encrypted rclone and Backrest setup. |
-| `home.nix` | The user account: Mac-only programs and settings (Photos importer, Hammerspoon, kitty and Ghostty themes, Codex and Claude wiring, network modes). |
+| `home.nix` | The user account: Mac-only programs and settings (Photos importer, Hammerspoon, kitty and Ghostty themes, Codex wiring, network modes). |
 | `from-profile.nix` | The builder: it turns the selected settings into this machine's configuration. The root `flake.nix` calls it. |
 
 The layer common to both machines lives in [`../shared/`](../shared/);

@@ -16,5 +16,12 @@
   programs.home-manager.enable = true;
   programs.bash.enable = true;
 
+  # Don't generate the `home-configuration.nix` man page: it is built
+  # from the full options JSON, whose store references are discarded
+  # upstream (nixosOptionsDoc), which makes current Nix warn on every
+  # build that the resulting options.json derivation is unreliable.
+  # We don't read that man page; the JSON/HTML manuals are already off.
+  manual.manpages.enable = false;
+
   home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
 }

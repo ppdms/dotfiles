@@ -25,11 +25,6 @@
         "omp": {},
         "codex": {
           "sandboxMode": null
-        },
-        "claude": {
-          "coworkUserFilesPath": "/Users/example/Documents",
-          "accountId": "example-account",
-          "remoteToolsDeviceName": "example-laptop"
         }
       },
       "ssh": {

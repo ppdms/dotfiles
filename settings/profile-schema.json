@@ -305,26 +305,6 @@
               "additionalProperties": false,
               "default": {}
             },
-            "claude": {
-              "type": "object",
-              "properties": {
-                "coworkUserFilesPath": {
-                  "$ref": "#/$defs/absolutePath"
-                },
-                "accountId": {
-                  "$ref": "#/$defs/name"
-                },
-                "remoteToolsDeviceName": {
-                  "$ref": "#/$defs/text"
-                }
-              },
-              "required": [
-                "coworkUserFilesPath",
-                "accountId",
-                "remoteToolsDeviceName"
-              ],
-              "additionalProperties": false
-            },
             "zed": {
               "type": "object",
               "properties": {
@@ -385,9 +365,7 @@
               "default": {}
             }
           },
-          "required": [
-            "claude"
-          ],
+          "required": [],
           "additionalProperties": false
         },
         "ssh": {

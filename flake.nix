@@ -22,6 +22,15 @@
     profile = {
       url = "path:./settings/placeholder-profile";
     };
+    # Private, machine-local packages. The real input lives outside
+    # this repository, is selected with --override-input in
+    # tools/profile/rebuild.sh, and may provide extra packages (see
+    # localPackages in the outputs). This in-repo placeholder provides
+    # none, so the public flake builds identically without it.
+    local-packages = {
+      url = "path:./local-packages";
+      flake = false;
+    };
   };
 
   outputs =
@@ -97,6 +106,8 @@
         // nixpkgs.lib.optionalAttrs (system == "aarch64-darwin") {
           photos-import = pkgs.callPackage ./programs/photos-import/package.nix { };
         }
+        # Packages provided by the private local-packages input, if any.
+        // import (self.inputs.local-packages + "/default.nix") { inherit pkgs; }
         // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
           omp = pkgs.callPackage ./tools/omp.nix { };
           # Closed beta: allow this one unfree package, nothing else.

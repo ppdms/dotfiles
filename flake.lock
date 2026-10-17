@@ -21,6 +21,18 @@
         "type": "github"
       }
     },
+    "local-packages": {
+      "flake": false,
+      "locked": {
+        "path": "./local-packages",
+        "type": "path"
+      },
+      "original": {
+        "path": "./local-packages",
+        "type": "path"
+      },
+      "parent": []
+    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -72,6 +84,7 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
+        "local-packages": "local-packages",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs",
         "profile": "profile",
